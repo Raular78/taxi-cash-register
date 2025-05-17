@@ -24,7 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/components/ui/use-toast"
 import { UploadIcon as FileUpload, FileText, Eye, Download, Search, Plus, Trash2, Edit } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { BackToAdminButton } from...
+import BackToAdminButton from "@/components/BackToAdminButton"
 import { useRouter } from "next/navigation"
 
 interface DailyRecord {
