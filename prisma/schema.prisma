@@ -1,0 +1,212 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          Int          @id @default(autoincrement())
+  username    String       // Nombre de usuario (no hay campo 'name')
+  email       String       @unique
+  password    String
+  role        String       @default("driver") // driver, admin
+  phone       String?
+  status      String       @default("active") // active, inactive
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  records     Record[]
+  dailyRecords DailyRecord[]
+  timeEntries TimeEntry[]
+  payrolls    Payroll[]
+  expenses    Expense[]    // Relación con gastos
+}
+
+// Modelo original para servicios individuales
+model Record {
+  id             Int      @id @default(autoincrement())
+  date           DateTime
+  origin         String
+  destination    String
+  distance       Float
+  fare           Float
+  tip            Float    @default(0)
+  totalAmount    Float
+  paymentMethod  String
+  driverId       Int
+  driver         User     @relation(fields: [driverId], references: [id])
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// Modelo para jornadas completas
+model DailyRecord {
+  id                Int      @id @default(autoincrement())
+  date              DateTime
+  startKm           Int
+  endKm             Int
+  totalKm           Int
+  cashAmount        Float    @default(0)
+  cardAmount        Float    @default(0)
+  invoiceAmount     Float    @default(0)
+  otherAmount       Float    @default(0)
+  totalAmount       Float
+  fuelExpense       Float    @default(0)
+  otherExpenses     Float    @default(0)
+  otherExpenseNotes String?
+  driverCommission  Float
+  netAmount         Float
+  notes             String?
+  shiftStart        String?
+  shiftEnd          String?
+  shiftBreakStart   String?  // Inicio del descanso (jornada partida)
+  shiftBreakEnd     String?  // Fin del descanso (jornada partida)
+  imageUrl          String?
+  driverId          Int
+  driver            User     @relation(fields: [driverId], references: [id])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model TimeEntry {
+  id           Int       @id @default(autoincrement())
+  userId       Int
+  user         User      @relation(fields: [userId], references: [id])
+  startTime    DateTime
+  endTime      DateTime?
+  breakTime    Int       @default(0) // Tiempo de descanso en minutos
+  totalMinutes Int?      // Tiempo total trabajado en minutos
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Payroll {
+  id             Int       @id @default(autoincrement())
+  userId         Int
+  user           User      @relation(fields: [userId], references: [id])
+  periodStart    DateTime
+  periodEnd      DateTime
+  baseSalary     Float
+  commissions    Float
+  bonuses        Float     @default(0)
+  deductions     Float     @default(0)
+  taxWithholding Float     @default(0)
+  netAmount      Float
+  status         String    @default("pending") // pending, paid
+  paymentDate    DateTime?
+  notes          String?
+  pdfUrl         String?   // URL del archivo PDF de la nómina
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Expense {
+  id          Int       @id @default(autoincrement())
+  date        DateTime
+  category    String
+  amount      Float
+  description String
+  receipt     String?   // URL o referencia al recibo
+  notes       String?
+  status      String    @default("pending") // pending, approved, rejected
+  isRecurring Boolean   @default(false)     // Indica si es un gasto recurrente
+  frequency   String?                       // monthly, quarterly, biannual, annual
+  nextDueDate DateTime?                     // Fecha del próximo vencimiento
+  userId      Int?      // Opcional: para asociar gastos a usuarios específicos
+  user        User?     @relation(fields: [userId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Modelo para vehículos
+model Vehicle {
+  id                Int       @id @default(autoincrement())
+  licensePlate      String    @unique
+  brand             String
+  model             String
+  year              Int
+  lastInspectionDate DateTime?
+  nextInspectionDate DateTime?
+  insuranceExpiry   DateTime?
+  status            String    @default("active") // active, maintenance, inactive
+  currentKm         Int       @default(0)
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  maintenances      Maintenance[]
+}
+
+// Modelo para mantenimientos de vehículos
+model Maintenance {
+  id          Int      @id @default(autoincrement())
+  vehicleId   Int
+  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id])
+  date        DateTime
+  type        String   // oil, tires, brakes, etc.
+  description String
+  cost        Float
+  km          Int
+  receipt     String?  // URL o referencia al recibo
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Modelo para clientes (para facturación)
+model Client {
+  id              Int      @id @default(autoincrement())
+  name            String
+  taxId           String?  // NIF/CIF
+  email           String?
+  phone           String?
+  address         String?
+  postalCode      String?
+  city            String?
+  country         String?  @default("España")
+  contactPerson   String?
+  notes           String?
+  status          String   @default("active") // active, inactive
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  invoices        Invoice[]
+}
+
+// Modelo para facturas
+model Invoice {
+  id              Int      @id @default(autoincrement())
+  invoiceNumber   String   @unique
+  clientId        Int
+  client          Client   @relation(fields: [clientId], references: [id])
+  issueDate       DateTime
+  dueDate         DateTime
+  subtotal        Float
+  taxRate         Float    @default(0.21) // 21% IVA por defecto
+  taxAmount       Float
+  totalAmount     Float
+  status          String   @default("pending") // pending, paid, cancelled
+  paymentDate     DateTime?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  invoiceItems    InvoiceItem[]
+}
+
+// Modelo para líneas de factura
+model InvoiceItem {
+  id          Int      @id @default(autoincrement())
+  invoiceId   Int
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+  description String
+  quantity    Int      @default(1)
+  unitPrice   Float
+  amount      Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
