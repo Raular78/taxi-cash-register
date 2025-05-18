@@ -1,11 +1,11 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "../../auth/[...nextauth]/options"
 import prisma from "../../../lib/db"
 import * as pdfParse from "pdf-parse"
 
 // Función para extraer datos del PDF
-async function extractDataFromPDF(buffer: Buffer) {
+async function extractDataFromPDF(buffer) {
   try {
     const data = await pdfParse(buffer)
     const text = data.text
@@ -18,7 +18,7 @@ async function extractDataFromPDF(buffer: Buffer) {
     // Aquí hay un ejemplo simplificado:
 
     const records = []
-    let currentRecord: any = {}
+    let currentRecord = {}
     let isDataSection = false
 
     for (const line of lines) {
@@ -102,7 +102,7 @@ async function extractDataFromPDF(buffer: Buffer) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -112,8 +112,8 @@ export async function POST(request: NextRequest) {
 
     // Obtener el FormData con el archivo
     const formData = await request.formData()
-    const file = formData.get("file") as File
-    const driverId = formData.get("driverId") as string
+    const file = formData.get("file")
+    const driverId = formData.get("driverId")
 
     if (!file) {
       return NextResponse.json({ error: "No se proporcionó ningún archivo" }, { status: 400 })
@@ -163,3 +163,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Error al importar PDF" }, { status: 500 })
   }
 }
+
+// Evitar que se ejecute código durante la compilación
+export const dynamic = 'force-dynamic'
