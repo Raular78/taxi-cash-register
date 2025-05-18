@@ -5,12 +5,9 @@ import prisma from "../../../lib/db"
 
 // Definir las opciones directamente en este archivo para evitar conflictos
 const authOptions = {
-  providers: [
-    CredentialsProvider({
-      name: "Credentials",
-      credentials: {
-        username: { label: "Username", type: "text" },
-        password: { label: "Password", type: "password" },
+  providers,
+      credentials, type,
+        password, type,
       },
       async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) {
@@ -18,7 +15,7 @@ const authOptions = {
         }
 
         try {
-          console.log(`Buscando usuario: ${credentials.username}`)
+          console.log(`Buscando usuario)
 
           // Autenticación de emergencia para admin en desarrollo
           if (
@@ -28,10 +25,10 @@ const authOptions = {
           ) {
             console.log("Autenticación de emergencia para admin")
             return {
-              id: "0",
-              username: "admin",
-              email: "admin@example.com",
-              role: "admin",
+              id,
+              username,
+              email,
+              role,
             }
           }
 
@@ -43,10 +40,10 @@ const authOptions = {
           ) {
             console.log("Autenticación de emergencia para conductor")
             return {
-              id: "1",
-              username: "Carlos",
-              email: "carlos@example.com",
-              role: "driver",
+              id,
+              username,
+              email,
+              role,
             }
           }
 
@@ -58,17 +55,17 @@ const authOptions = {
           ) {
             console.log("Autenticación de emergencia para Raul")
             return {
-              id: "2",
-              username: "Raul",
-              email: "raul@example.com",
-              role: "admin",
+              id,
+              username,
+              email,
+              role,
             }
           }
 
           // Si no es autenticación de emergencia, buscar en la base de datos
           try {
             const user = await prisma.user.findFirst({
-              where: { username: credentials.username },
+              where,
             })
 
             if (!user) {
@@ -84,10 +81,10 @@ const authOptions = {
             }
 
             return {
-              id: user.id.toString(),
-              username: user.username,
-              email: user.email,
-              role: user.role,
+              id),
+              username,
+              email,
+              role,
             }
           } catch (dbError) {
             console.error("Error al consultar la base de datos:", dbError)
@@ -101,8 +98,7 @@ const authOptions = {
       },
     }),
   ],
-  callbacks: {
-    async jwt({ token, user }) {
+  callbacks, user }) {
       if (user) {
         token.id = user.id
         token.username = user.username
@@ -119,14 +115,12 @@ const authOptions = {
       return session
     },
   },
-  pages: {
-    signIn: "/login",
+  pages,
   },
-  session: {
-    strategy: "jwt",
+  session,
   },
-  secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NODE_ENV === "development",
+  secret,
+  debug=== "development",
 }
 
 const handler = NextAuth(authOptions)
