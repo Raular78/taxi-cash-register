@@ -1,13 +1,9 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import prisma from "@/app/lib/db"
 import { authOptions } from "@/app/lib/auth"
 
-// En Next.js 15, los parámetros de ruta se pasan directamente como segundo argumento
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request, { params }) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -52,10 +48,7 @@ export async function GET(
   }
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(request, { params }) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -118,10 +111,7 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request, { params }) {
   try {
     const session = await getServerSession(authOptions)
 
