@@ -6,11 +6,11 @@ import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "..\..\..\components\ui/card"
+import { Button } from "..\..\..\components\ui/button"
+import { Input } from "..\..\..\components\ui/input"
+import { Label } from "..\..\..\components\ui/label"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "..\..\..\components\ui/table"
 import {
   Dialog,
   DialogContent,
@@ -18,13 +18,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { DateRangePicker } from "@/components/ui/date-range-picker"
-import { Skeleton } from "@/components/ui/skeleton"
-import { toast } from "@/components/ui/use-toast"
+} from "..\..\..\components\ui/dialog"
+import { DateRangePicker } from "..\..\..\components\ui/date-range-picker"
+import { Skeleton } from "..\..\..\components\ui/skeleton"
+import { toast } from "..\..\..\components\ui/use-toast"
 import { UploadIcon as FileUpload, FileText, Eye, Download, Search, Plus, Trash2, Edit } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import BackToAdminButton from "@/components/BackToAdminButton"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "..\..\..\components\ui/select"
+import BackToAdminButton from "..\..\..\components\BackToAdminButton"
 import { useRouter } from "next/navigation"
 
 interface DailyRecord {

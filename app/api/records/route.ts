@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/api/auth/options"
-import prisma from "@/app/lib/db"
+import { authOptions } from "..\auth\options"
+import prisma from "..\..\lib\db"
 import { parseISO, startOfDay, endOfDay } from "date-fns"
 
 export async function GET(request: NextRequest) {

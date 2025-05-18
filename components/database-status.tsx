@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "./ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card"
 import { AlertCircle, Database, RefreshCw } from "lucide-react"
-import { toast } from "@/components/ui/use-toast"
+import { toast } from "./ui/use-toast"
 
 export function DatabaseStatus() {
   const [status, setStatus] = useState<"checking" | "connected" | "disconnected" | "mock_mode">("checking")

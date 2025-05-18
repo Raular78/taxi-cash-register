@@ -4,11 +4,11 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardHeader, CardTitle } from "..\..\..\components\ui/card"
+import { Button } from "..\..\..\components\ui/button"
+import { Textarea } from "..\..\..\components\ui/textarea"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "..\..\..\components\ui/table"
+import { Input } from "..\..\..\components\ui/input"
 import {
   ChevronLeft,
   Table2,
@@ -19,7 +19,7 @@ import {
   Download,
   FileSpreadsheet,
 } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Alert, AlertDescription, AlertTitle } from "..\..\..\components\ui/alert"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 

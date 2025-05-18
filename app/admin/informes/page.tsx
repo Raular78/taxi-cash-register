@@ -4,12 +4,12 @@ import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Layout from "../../components/Layout"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "..\..\..\components\ui/card"
+import { Button } from "..\..\..\components\ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "..\..\..\components\ui/tabs"
 import { FileDown, Printer, BarChart2, PieChart, TrendingUp, Calendar } from "lucide-react"
-import { SimpleDateRangePicker } from "@/components/ui/simple-date-range-picker"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SimpleDateRangePicker } from "..\..\..\components\ui/simple-date-range-picker"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "..\..\..\components\ui/select"
 
 export default function Informes() {
   const { data: session, status } = useSession()

@@ -6,12 +6,12 @@ import { useState, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import { format, startOfMonth, endOfMonth, isValid, parseISO } from "date-fns"
 import { es } from "date-fns/locale"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "..\..\..\components\ui/card"
+import { Button } from "..\..\..\components\ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "..\..\..\components\ui/table"
+import { Input } from "..\..\..\components\ui/input"
+import { Label } from "..\..\..\components\ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "..\..\..\components\ui/select"
 import {
   Dialog,
   DialogContent,
@@ -19,14 +19,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from "..\..\..\components\ui/dialog"
 import { Plus, Edit, Trash, Download, FileUp, Loader2 } from "lucide-react"
-import BackToAdminButton from "@/components/BackToAdminButton"
-import { toast } from "@/components/ui/use-toast"
-import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
-import { DateFilter } from "@/components/date-filter"
-import { useFixedExpenses } from "@/hooks/use-api-queries"
+import BackToAdminButton from "..\..\..\components\BackToAdminButton"
+import { toast } from "..\..\..\components\ui/use-toast"
+import { Textarea } from "..\..\..\components\ui/textarea"
+import { Checkbox } from "..\..\..\components\ui/checkbox"
+import { DateFilter } from "..\..\..\components\date-filter"
+import { useFixedExpenses } from "..\..\..\hooks\use-api-queries"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
 interface Expense {

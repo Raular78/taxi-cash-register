@@ -2,15 +2,15 @@
 
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "..\..\..\components\ui/card"
+import { Button } from "..\..\..\components\ui/button"
 import { format, parseISO, differenceInMinutes } from "date-fns"
 import { es } from "date-fns/locale"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "..\..\..\components\ui/tabs"
 import { Loader2, Play, Square, Clock } from "lucide-react"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { SimpleDatePicker } from "@/components/ui/simple-date-picker"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "..\..\..\components\ui/table"
+import { Badge } from "..\..\..\components\ui/badge"
+import { SimpleDatePicker } from "..\..\..\components\ui/simple-date-picker"
 
 interface TimeEntry {
   id: number

@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/api/auth/options"
+import { authOptions } from "..\auth\options"
 import { join } from "path"
 import { mkdir, writeFile, readFile } from "fs/promises"
 import { existsSync } from "fs"

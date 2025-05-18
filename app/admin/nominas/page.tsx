@@ -2,15 +2,15 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent, CardHeader, CardTitle } from "..\..\..\components\ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "..\..\..\components\ui/table"
+import { Button } from "..\..\..\components\ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "..\..\..\components\ui/select"
 import { format, parseISO, isValid } from "date-fns"
 import { es } from "date-fns/locale"
 import { FileText, Download, Plus, Search, FileCheck, FileClock, Upload } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
+import { Input } from "..\..\..\components\ui/input"
+import { Badge } from "..\..\..\components\ui/badge"
 
 interface Payroll {
   id: number

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/api/auth/[...nextauth]/options"
-import prisma from "@/app/lib/db"
-import { exportToExcel } from "@/app/utils/excelExport"
+import { authOptions } from "..\..\auth[...nextauth]/options"
+import prisma from "..\..\..\lib\db"
+import { exportToExcel } from "..\..\..\utils\excelExport"
 
 export async function GET(request: Request) {
   try {

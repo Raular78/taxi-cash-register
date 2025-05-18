@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
+import { Button } from "..\..\components\ui/button"
 import { CheckCircle, XCircle, RefreshCw, Database } from "lucide-react"
 
 export default function DatabaseStatus() {

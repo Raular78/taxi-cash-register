@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useRef } from "react"
-import { Button } from "@/components/ui/button"
+import { Button } from "..\..\components\ui/button"
 import { Camera, Search } from "lucide-react"
 import Image from "next/image"
 

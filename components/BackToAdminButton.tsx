@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
+import { Button } from "./ui/button"
 import { ChevronLeft } from "lucide-react"
 
 // Cambiamos la exportación a default para que coincida con la importación en gastos-fijos/page.tsx
