@@ -1,7 +1,7 @@
 import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { compare } from "bcrypt"
-import prisma from "..\..\..\lib\db"
+import prisma from "../../../lib/db"
 
 // Definir las opciones directamente en este archivo para evitar conflictos
 const authOptions = {

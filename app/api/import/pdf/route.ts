@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "../../auth/[...nextauth]/options"
-import prisma from "..\..\..\lib\db"
+import prisma from "../../../lib/db"
 import * as pdfParse from "pdf-parse"
 
 // Función para extraer datos del PDF

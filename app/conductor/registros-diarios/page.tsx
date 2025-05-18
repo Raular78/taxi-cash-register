@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { format, subDays } from "date-fns"
 import { es } from "date-fns/locale"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "..\..\..\components\ui/card"
-import { Button } from "..\..\..\components\ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "..\..\..\components\ui/tabs"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../../components/ui/card"
+import { Button } from "../../../components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs"
 import { ChevronLeft, Download, Edit, Plus } from "lucide-react"
 import type { DateRange } from "react-day-picker"
-import { SimpleDateRangePicker } from "..\..\components\ui\simple-date-range-picker"
+import { SimpleDateRangePicker } from "../../components/ui/simple-date-range-picker"
 
 interface DailyRecord {
   id: number

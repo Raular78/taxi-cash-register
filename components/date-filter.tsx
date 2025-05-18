@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import type { DateRange } from "react-day-picker"
 import { DateRangePicker } from "./ui/date-range-picker"
-import { useDebounce } from "..\hooks\use-debounce"
+import { useDebounce } from "../hooks/use-debounce"
 
 interface DateFilterProps {
   onChange: (range: { from: Date; to: Date }) => void

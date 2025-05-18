@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "../../auth/options"
-import prisma from "..\..\..\lib\db"
+import prisma from "../../../lib/db"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 

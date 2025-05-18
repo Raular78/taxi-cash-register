@@ -4,11 +4,11 @@ import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { format, subDays } from "date-fns"
 import { es } from "date-fns/locale"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "..\..\components\ui/card"
-import { Button } from "..\..\components\ui/button"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "..\..\components\ui/table"
-import { DateRangePicker } from "..\..\components\ui/date-range-picker"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "..\..\components\ui/tabs"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
+import { Button } from "../../components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
+import { DateRangePicker } from "../../components/ui/date-range-picker"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import {
   BarChart,
   Bar,
