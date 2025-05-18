@@ -4,13 +4,13 @@ import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Layout from "../../../components/Layout"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card'
+import { Button } from "../../../../components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../../components/ui/tabs"
 import { FileDown, FileText, AlertCircle } from "lucide-react"
-import { SimpleDateRangePicker } from "@/components/ui/simple-date-range-picker"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
+import { SimpleDateRangePicker } from "../../../../components/ui/simple-date-range-picker"
+import { Alert, AlertDescription, AlertTitle } from "../../../../components/ui/alert"
+import { Badge } from "../../../../components/ui/badge"
 
 export default function GestionImpuestos() {
   const { data: session, status } = useSession()

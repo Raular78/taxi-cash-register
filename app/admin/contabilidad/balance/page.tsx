@@ -4,12 +4,11 @@ import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Layout from "../../../components/Layout"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FileDown, Printer } from "lucide-react"
-import { SimpleDateRangePicker } from "@/components/ui/simple-date-range-picker"
-
+import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card'
+import { Button } from '../../../../components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components/ui/tabs'
+import { SimpleDateRangePicker } from '../../../../components/ui/simple-date-range-picker'
 export default function BalanceContable() {
   const { data: session, status } = useSession()
   const [isLoading, setIsLoading] = useState(true)
