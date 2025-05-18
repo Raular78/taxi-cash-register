@@ -1,13 +1,16 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-// Corregir la importación de authOptions
-import { authOptions } from "@/app/lib/auth"
 import prisma from "@/app/lib/db"
+import { authOptions } from "@/app/lib/auth"
 
-export async function GET(
-  request: NextRequest, 
-  { params }: { params: { id: string } }
-) {
+// Definición de tipos para los parámetros de ruta
+interface RouteParams {
+  params: {
+    id: string
+  }
+}
+
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -52,10 +55,7 @@ export async function GET(
   }
 }
 
-export async function PUT(
-  request: NextRequest, 
-  { params }: { params: { id: string } }
-) {
+export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -120,10 +120,7 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  request: NextRequest, 
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getServerSession(authOptions)
 
