@@ -1,15 +1,17 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table"
+import { Button } from "../../../components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select"
+import { Calendar } from "../../../components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "../../../components/ui/popover"
 import { format, addDays, startOfWeek, endOfWeek, differenceInMinutes, parseISO } from "date-fns"
 import { es } from "date-fns/locale"
 import { CalendarIcon, Download, FileText } from 'lucide-react'
+
+
 
 interface TimeEntry {
   id: number

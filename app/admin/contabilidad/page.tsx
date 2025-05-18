@@ -45,7 +45,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from "../../../components/ui/dialog"
 import { Input } from "../../../components/ui/input"
 import { Label } from "../../../components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select"
@@ -53,6 +53,7 @@ import { DateFilter } from "../../../components/date-filter"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { DatabaseStatus } from "../../../components/database-status"
 import { toast } from "../../../components/ui/use-toast"
+
 
 // Categorías que consideramos como gastos fijos
 const FIXED_EXPENSE_CATEGORIES = [
