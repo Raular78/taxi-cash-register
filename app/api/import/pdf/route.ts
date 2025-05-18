@@ -4,6 +4,10 @@ import { authOptions } from "../../auth/[...nextauth]/options"
 import prisma from "../../../lib/db"
 import * as pdfParse from "pdf-parse"
 
+// Evitar que se ejecute código durante la compilación
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 // Función para extraer datos del PDF
 async function extractDataFromPDF(buffer) {
   try {
@@ -163,6 +167,3 @@ export async function POST(request) {
     return NextResponse.json({ error: "Error al importar PDF" }, { status: 500 })
   }
 }
-
-// Evitar que se ejecute código durante la compilación
-export const dynamic = 'force-dynamic'
