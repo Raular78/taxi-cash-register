@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    
     "start": "next start",
     "lint": "next lint",
     "build": "npm install --no-save typescript @types/node && next build"
@@ -49,7 +48,10 @@
     "csv-parse": "^5.5.3",
     "date-fns": "^3.3.1",
     "embla-carousel-react": "^8.0.0-rc22",
-    
+    "typescript": "5.8.3",
+    "@types/node": "20.17.47",
+    "@types/react": "18.3.21",
+    "@types/react-dom": "18.3.7",
     "lucide-react": "^0.331.0",
     "next": "^15.3.2",
     "next-auth": "^4.24.5",
