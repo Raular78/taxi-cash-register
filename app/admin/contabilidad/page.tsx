@@ -6,10 +6,10 @@ import { useState, useCallback, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns"
 import { es } from "date-fns/locale"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card"
+import { Button } from "../../../components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs"
 import {
   BarChart,
   Bar,
@@ -46,13 +46,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DateFilter } from "@/components/date-filter"
+import { Input } from "../../../components/ui/input"
+import { Label } from "../../../components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select"
+import { DateFilter } from "../../../components/date-filter"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { DatabaseStatus } from "@/components/database-status"
-import { toast } from "@/components/ui/use-toast"
+import { DatabaseStatus } from "../../../components/database-status"
+import { toast } from "../../../components/ui/use-toast"
 
 // Categorías que consideramos como gastos fijos
 const FIXED_EXPENSE_CATEGORIES = [

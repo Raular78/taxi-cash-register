@@ -4,11 +4,11 @@ import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Layout from "../../../components/Layout"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../../components/ui/card"
+import { Button } from "../../../components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs"
 import { FileDown, Printer, BarChart2, PieChart, TrendingUp } from "lucide-react"
-import { SimpleDateRangePicker } from "@/components/ui/simple-date-range-picker"
+import { SimpleDateRangePicker } from "../../../components/ui/simple-date-range-picker"
 
 export default function InformesFinancieros() {
   const { data: session, status } = useSession()
