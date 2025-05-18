@@ -3,14 +3,11 @@ import { getServerSession } from "next-auth"
 import prisma from "@/app/lib/db"
 import { authOptions } from "@/app/lib/auth"
 
-// Definición de tipos para los parámetros de ruta
-interface RouteParams {
-  params: {
-    id: string
-  }
-}
-
-export async function GET(request: NextRequest, { params }: RouteParams) {
+// En Next.js 15, los parámetros de ruta se pasan directamente como segundo argumento
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -55,7 +52,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-export async function PUT(request: NextRequest, { params }: RouteParams) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -107,8 +107,6 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         notes: data.notes !== undefined ? data.notes : undefined,
         shiftStart: data.shiftStart !== undefined ? data.shiftStart : undefined,
         shiftEnd: data.shiftEnd !== undefined ? data.shiftEnd : undefined,
-        shiftBreakStart: data.shiftBreakStart !== undefined ? data.shiftBreakStart : undefined,
-        shiftBreakEnd: data.shiftBreakEnd !== undefined ? data.shiftBreakEnd : undefined,
         imageUrl: data.imageUrl !== undefined ? data.imageUrl : undefined,
       },
     })
@@ -120,7 +118,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
     const session = await getServerSession(authOptions)
 
