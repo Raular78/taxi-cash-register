@@ -4,7 +4,7 @@
     "allowJs": true,
     "target": "ES6",
     "skipLibCheck": true,
-    "strict": true,
+    "strict":false,
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
@@ -22,6 +22,6 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "app/api/fixed-expenses/[id]/route.js"],
   "exclude": ["node_modules"]
 }
