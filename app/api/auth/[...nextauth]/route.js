@@ -9,8 +9,8 @@ const authOptions = {
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        username: { label: "Username", type: "text" },
-        password: { label: "Password", type: "password" },
+        username: { label: "Usuario o Email", type: "text" },
+        password: { label: "Contraseña", type: "password" },
       },
       async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) {
@@ -18,12 +18,12 @@ const authOptions = {
         }
 
         try {
-          console.log(`Buscando usuario: ${credentials.username}`);
+          console.log(`Intentando autenticar: ${credentials.username}`);
 
           // Autenticación de emergencia para admin en desarrollo
           if (
             process.env.NODE_ENV === "development" &&
-            credentials.username === "admin" &&
+            (credentials.username === "admin" || credentials.username === "admin@example.com") &&
             credentials.password === "admin"
           ) {
             console.log("Autenticación de emergencia para admin");
@@ -35,17 +35,17 @@ const authOptions = {
             };
           }
 
-          // Autenticación de emergencia para conductor en desarrollo
+          // Autenticación de emergencia para Carlos en desarrollo
           if (
             process.env.NODE_ENV === "development" &&
-            credentials.username === "Carlos" &&
+            (credentials.username === "Carlos" || credentials.username === "ch.ar.ly64@hotmail.com") &&
             credentials.password === "Carlostaxi30!"
           ) {
-            console.log("Autenticación de emergencia para conductor");
+            console.log("Autenticación de emergencia para Carlos");
             return {
               id: "1",
               username: "Carlos",
-              email: "carlos@example.com",
+              email: "ch.ar.ly64@hotmail.com",
               role: "driver",
             };
           }
@@ -53,22 +53,28 @@ const authOptions = {
           // Autenticación de emergencia para Raul en desarrollo
           if (
             process.env.NODE_ENV === "development" &&
-            credentials.username === "Raul" &&
+            (credentials.username === "Raul" || credentials.username === "r.arjona@mail.ru") &&
             credentials.password === "Raultaxi30!"
           ) {
             console.log("Autenticación de emergencia para Raul");
             return {
               id: "2",
               username: "Raul",
-              email: "raul@example.com",
+              email: "r.arjona@mail.ru",
               role: "admin",
             };
           }
 
           // Si no es autenticación de emergencia, buscar en la base de datos
           try {
+            // Buscar usuario por nombre de usuario O email
             const user = await prisma.user.findFirst({
-              where: { username: credentials.username },
+              where: {
+                OR: [
+                  { username: credentials.username },
+                  { email: credentials.username }
+                ]
+              },
             });
 
             if (!user) {
@@ -83,6 +89,7 @@ const authOptions = {
               return null;
             }
 
+            console.log(`Usuario autenticado: ${user.username} (${user.email})`);
             return {
               id: user.id.toString(),
               username: user.username,
@@ -106,6 +113,7 @@ const authOptions = {
       if (user) {
         token.id = user.id;
         token.username = user.username;
+        token.email = user.email;
         token.role = user.role;
       }
       return token;
@@ -114,6 +122,7 @@ const authOptions = {
       if (token && session.user) {
         session.user.id = token.id;
         session.user.username = token.username;
+        session.user.email = token.email;
         session.user.role = token.role;
       }
       return session;
