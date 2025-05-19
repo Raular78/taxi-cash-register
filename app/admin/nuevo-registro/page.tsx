@@ -24,12 +24,15 @@ export default function NuevoRegistroPage() {
   const router = useRouter()
   const [isUploading, setIsUploading] = useState(false)
   const [drivers, setDrivers] = useState<User[]>([])
+  // Modificar el estado inicial para incluir totalAmount como campo de entrada
+  // y cashAmount como campo calculado
   const [newRecord, setNewRecord] = useState({
     date: format(new Date(), "yyyy-MM-dd"),
     driverId: "",
     startKm: "",
     endKm: "",
-    cashAmount: "",
+    totalAmount: "", // Este es ahora un campo de entrada (total recaudado)
+    cashAmount: "", // Este será un valor calculado
     cardAmount: "",
     invoiceAmount: "",
     otherAmount: "",
@@ -93,41 +96,45 @@ export default function NuevoRegistroPage() {
     }))
   }
 
+  // Reemplazar la función calculateTotals con esta nueva lógica
   const calculateTotals = () => {
     const startKm = Number.parseInt(newRecord.startKm) || 0
     const endKm = Number.parseInt(newRecord.endKm) || 0
     const totalKm = endKm - startKm
 
-    // Calcular los diferentes tipos de ingresos
-    const cashAmount = Number.parseFloat(newRecord.cashAmount) || 0
+    // El total recaudado es un valor de entrada
+    const totalAmount = Number.parseFloat(newRecord.totalAmount) || 0
+
+    // Calcular la comisión del conductor (35% del total recaudado)
+    const driverCommission = totalAmount * 0.35
+
+    // Obtener los valores de tarjeta, facturación y otros ingresos
     const cardAmount = Number.parseFloat(newRecord.cardAmount) || 0
     const invoiceAmount = Number.parseFloat(newRecord.invoiceAmount) || 0
     const otherAmount = Number.parseFloat(newRecord.otherAmount) || 0
-
-    // Calcular el total de ingresos (suma de todos los tipos)
-    const totalAmount = cashAmount + cardAmount + invoiceAmount + otherAmount
 
     // Calcular los gastos
     const fuelExpense = Number.parseFloat(newRecord.fuelExpense) || 0
     const otherExpenses = Number.parseFloat(newRecord.otherExpenses) || 0
     const totalExpenses = fuelExpense + otherExpenses
 
-    // Calcular la comisión del conductor (35% del total de ingresos)
-    // La comisión se calcula sobre el total de ingresos, sin restar gastos
-    const driverCommission = totalAmount * 0.35
+    // Calcular el efectivo como el total menos todos los demás conceptos
+    const cashAmount = totalAmount - cardAmount - invoiceAmount - otherAmount - totalExpenses - driverCommission
 
-    // El neto para la empresa es el total de ingresos menos gastos y comisión
-    const netAmount = totalAmount - totalExpenses - driverCommission
+    // El neto para la empresa es el total menos la comisión del conductor
+    const netAmount = totalAmount - driverCommission - totalExpenses
 
     return {
       totalKm,
       totalAmount,
-      totalExpenses,
+      cashAmount,
       driverCommission,
+      totalExpenses,
       netAmount,
     }
   }
 
+  // Modificar el handleSubmit para usar la nueva lógica
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -140,7 +147,7 @@ export default function NuevoRegistroPage() {
       return
     }
 
-    const { totalKm, totalAmount, driverCommission, netAmount } = calculateTotals()
+    const { totalKm, totalAmount, cashAmount, driverCommission, netAmount } = calculateTotals()
 
     const recordData = {
       ...newRecord,
@@ -148,11 +155,11 @@ export default function NuevoRegistroPage() {
       startKm: Number.parseInt(newRecord.startKm),
       endKm: Number.parseInt(newRecord.endKm),
       totalKm,
-      cashAmount: Number.parseFloat(newRecord.cashAmount) || 0,
+      totalAmount: Number.parseFloat(newRecord.totalAmount) || 0,
+      cashAmount, // Ahora es un valor calculado
       cardAmount: Number.parseFloat(newRecord.cardAmount) || 0,
       invoiceAmount: Number.parseFloat(newRecord.invoiceAmount) || 0,
       otherAmount: Number.parseFloat(newRecord.otherAmount) || 0,
-      totalAmount,
       fuelExpense: Number.parseFloat(newRecord.fuelExpense) || 0,
       otherExpenses: Number.parseFloat(newRecord.otherExpenses) || 0,
       driverCommission,
@@ -327,17 +334,17 @@ export default function NuevoRegistroPage() {
                 <h3 className="font-medium mb-2">Ingresos</h3>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="cashAmount">Efectivo</Label>
+                    <Label htmlFor="totalAmount">Total Recaudado</Label>
                     <Input
-                      id="cashAmount"
-                      name="cashAmount"
+                      id="totalAmount"
+                      name="totalAmount"
                       type="number"
                       step="0.01"
-                      value={newRecord.cashAmount}
+                      value={newRecord.totalAmount}
                       onChange={handleInputChange}
+                      required
                     />
                   </div>
-
                   <div className="space-y-2">
                     <Label htmlFor="cardAmount">Tarjeta</Label>
                     <Input
@@ -451,6 +458,7 @@ export default function NuevoRegistroPage() {
               )}
             </div>
 
+            {/* Modificar la sección de resumen calculado para mostrar el efectivo calculado */}
             <div className="bg-muted p-4 rounded-md">
               <h3 className="font-medium mb-2">Resumen Calculado</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -459,8 +467,8 @@ export default function NuevoRegistroPage() {
                   <p className="font-medium">{calculateTotals().totalKm} km</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Ingresos</p>
-                  <p className="font-medium">{formatCurrency(calculateTotals().totalAmount)}</p>
+                  <p className="text-sm text-muted-foreground">Efectivo Calculado</p>
+                  <p className="font-medium">{formatCurrency(calculateTotals().cashAmount)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Comisión Conductor</p>
@@ -492,4 +500,3 @@ export default function NuevoRegistroPage() {
     </div>
   )
 }
-
