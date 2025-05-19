@@ -5,14 +5,14 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card"
-import { Button } from "../../../components/ui/button"
-import { Input } from "../../../components/ui/input"
-import { Label } from "../../../components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select"
-import { toast } from "../../../components/ui/use-toast"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "@/components/ui/use-toast"
 import { UploadIcon as FileUpload, ArrowLeft } from "lucide-react"
-import BackToAdminButton from "../../../components/BackToAdminButton"
+import BackToAdminButton from "@/components/BackToAdminButton"
 import { useEffect } from "react"
 
 interface User {
@@ -98,18 +98,25 @@ export default function NuevoRegistroPage() {
     const endKm = Number.parseInt(newRecord.endKm) || 0
     const totalKm = endKm - startKm
 
+    // Calcular los diferentes tipos de ingresos
     const cashAmount = Number.parseFloat(newRecord.cashAmount) || 0
     const cardAmount = Number.parseFloat(newRecord.cardAmount) || 0
     const invoiceAmount = Number.parseFloat(newRecord.invoiceAmount) || 0
     const otherAmount = Number.parseFloat(newRecord.otherAmount) || 0
+
+    // Calcular el total de ingresos (suma de todos los tipos)
     const totalAmount = cashAmount + cardAmount + invoiceAmount + otherAmount
 
+    // Calcular los gastos
     const fuelExpense = Number.parseFloat(newRecord.fuelExpense) || 0
     const otherExpenses = Number.parseFloat(newRecord.otherExpenses) || 0
     const totalExpenses = fuelExpense + otherExpenses
 
-    // Asumimos comisión del 35% sobre el total después de gastos
-    const driverCommission = (totalAmount - totalExpenses) * 0.35
+    // Calcular la comisión del conductor (35% del total de ingresos)
+    // La comisión se calcula sobre el total de ingresos, sin restar gastos
+    const driverCommission = totalAmount * 0.35
+
+    // El neto para la empresa es el total de ingresos menos gastos y comisión
     const netAmount = totalAmount - totalExpenses - driverCommission
 
     return {
@@ -485,3 +492,4 @@ export default function NuevoRegistroPage() {
     </div>
   )
 }
+
