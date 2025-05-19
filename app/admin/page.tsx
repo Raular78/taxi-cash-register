@@ -411,7 +411,7 @@ export default function AdminDashboard() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <div>
+              
                 <CardTitle>Registros Recientes</CardTitle>
                 <CardDescription>Últimos servicios registrados en el sistema</CardDescription>
                 <div className="flex space-x-2">
