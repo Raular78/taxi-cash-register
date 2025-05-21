@@ -488,11 +488,13 @@ export default function AdminDailyRecordsPage() {
               />
             </div>
 
+            {/* Aquí está el cambio: usar dateRange y onRangeChange en lugar de from/to/onFromChange/onToChange */}
             <DateRangePicker
-              from={dateRange.from}
-              to={dateRange.to}
-              onFromChange={(date) => setDateRange((prev) => ({ ...prev, from: date }))}
-              onToChange={(date) => setDateRange((prev) => ({ ...prev, to: date }))}
+              dateRange={{
+                from: dateRange.from,
+                to: dateRange.to,
+              }}
+              onRangeChange={(range) => setDateRange(range)}
             />
 
             <Select value={driverFilter} onValueChange={setDriverFilter}>
@@ -992,4 +994,3 @@ export default function AdminDailyRecordsPage() {
     </div>
   )
 }
-

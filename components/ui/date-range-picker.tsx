@@ -7,27 +7,66 @@ import { CalendarIcon } from "lucide-react"
 import type { DateRange } from "react-day-picker"
 
 import { cn } from "../../lib/utils"
-import { Button } from ".//button"
-import { Calendar } from ".//calendar"
-import { Popover, PopoverContent, PopoverTrigger } from ".//popover"
+import { Button } from "./button"
+import { Calendar } from "./calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "./popover"
 
 interface DateRangePickerProps {
   className?: string
-  dateRange: DateRange | undefined
+  // Soporte para ambos métodos de uso
+  dateRange?: DateRange
   onRangeChange?: (range: { from: Date; to: Date }) => void
+  // Soporte para el método actual usado en la página
+  from?: Date
+  to?: Date
+  onFromChange?: (date: Date) => void
+  onToChange?: (date: Date) => void
   align?: "start" | "center" | "end"
 }
 
-export function DateRangePicker({ className, dateRange, onRangeChange, align = "start" }: DateRangePickerProps) {
+export function DateRangePicker({
+  className,
+  dateRange,
+  onRangeChange,
+  from,
+  to,
+  onFromChange,
+  onToChange,
+  align = "start",
+}: DateRangePickerProps) {
   const [isOpen, setIsOpen] = React.useState(false)
 
+  // Usar dateRange si se proporciona, o construirlo a partir de from/to
+  const range = dateRange || (from && to ? { from, to } : undefined)
+
+  // Calcular el mes actual para mostrar en el calendario
+  const currentMonth = React.useMemo(() => {
+    return range?.from || new Date()
+  }, [range?.from])
+
   const handleDateChange = (newRange: DateRange | undefined) => {
-    // Solo notificar cambios si ambas fechas están definidas y onRangeChange es una función
-    if (newRange?.from && newRange?.to && typeof onRangeChange === "function") {
+    if (!newRange) return
+
+    // Si se proporciona onRangeChange, usarlo
+    if (typeof onRangeChange === "function" && newRange?.from && newRange?.to) {
       onRangeChange({
         from: newRange.from,
         to: newRange.to,
       })
+    }
+
+    // Si se proporcionan onFromChange y onToChange, usarlos
+    if (newRange.from && typeof onFromChange === "function") {
+      onFromChange(newRange.from)
+    }
+
+    if (newRange.to && typeof onToChange === "function") {
+      onToChange(newRange.to)
+    }
+
+    // Si ambas fechas están seleccionadas, cerrar el popover
+    if (newRange.from && newRange.to) {
+      setTimeout(() => setIsOpen(false), 300)
     }
   }
 
@@ -38,17 +77,16 @@ export function DateRangePicker({ className, dateRange, onRangeChange, align = "
           <Button
             id="date"
             variant={"outline"}
-            className={cn("w-full justify-start text-left font-normal", !dateRange && "text-muted-foreground")}
+            className={cn("w-full justify-start text-left font-normal", !range && "text-muted-foreground")}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
-            {dateRange?.from ? (
-              dateRange.to ? (
+            {range?.from ? (
+              range.to ? (
                 <>
-                  {format(dateRange.from, "dd/MM/yyyy", { locale: es })} -{" "}
-                  {format(dateRange.to, "dd/MM/yyyy", { locale: es })}
+                  {format(range.from, "dd/MM/yyyy", { locale: es })} - {format(range.to, "dd/MM/yyyy", { locale: es })}
                 </>
               ) : (
-                format(dateRange.from, "dd/MM/yyyy", { locale: es })
+                format(range.from, "dd/MM/yyyy", { locale: es })
               )
             ) : (
               <span>Selecciona un rango de fechas</span>
@@ -59,12 +97,12 @@ export function DateRangePicker({ className, dateRange, onRangeChange, align = "
           <Calendar
             initialFocus
             mode="range"
-            defaultMonth={dateRange?.from}
-            selected={dateRange}
+            defaultMonth={currentMonth}
+            selected={range}
             onSelect={handleDateChange}
             numberOfMonths={2}
             locale={es}
-            className="bg-white dark:bg-gray-800" // Fondo adecuado para ambos modos
+            className="bg-white dark:bg-gray-800"
           />
         </PopoverContent>
       </Popover>
