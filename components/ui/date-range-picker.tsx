@@ -39,12 +39,23 @@ export function DateRangePicker({
   // Usar dateRange si se proporciona, o construirlo a partir de from/to
   const range = dateRange || (from && to ? { from, to } : undefined)
 
+  // Estado interno para manejar la selección de fechas
+  const [internalRange, setInternalRange] = React.useState<DateRange | undefined>(range)
+
+  // Actualizar el estado interno cuando cambian las props
+  React.useEffect(() => {
+    setInternalRange(range)
+  }, [range])
+
   // Calcular el mes actual para mostrar en el calendario
-  const currentMonth = React.useMemo(() => {
-    return range?.from || new Date()
-  }, [range?.from])
+  const defaultMonth = React.useMemo(() => {
+    return internalRange?.from || new Date()
+  }, [internalRange?.from])
 
   const handleDateChange = (newRange: DateRange | undefined) => {
+    // Actualizar el estado interno primero
+    setInternalRange(newRange)
+
     if (!newRange) return
 
     // Si se proporciona onRangeChange, usarlo
@@ -53,6 +64,9 @@ export function DateRangePicker({
         from: newRange.from,
         to: newRange.to,
       })
+
+      // Cerrar el popover cuando se selecciona un rango completo
+      setTimeout(() => setIsOpen(false), 300)
     }
 
     // Si se proporcionan onFromChange y onToChange, usarlos
@@ -63,11 +77,6 @@ export function DateRangePicker({
     if (newRange.to && typeof onToChange === "function") {
       onToChange(newRange.to)
     }
-
-    // Si ambas fechas están seleccionadas, cerrar el popover
-    if (newRange.from && newRange.to) {
-      setTimeout(() => setIsOpen(false), 300)
-    }
   }
 
   return (
@@ -77,16 +86,17 @@ export function DateRangePicker({
           <Button
             id="date"
             variant={"outline"}
-            className={cn("w-full justify-start text-left font-normal", !range && "text-muted-foreground")}
+            className={cn("w-full justify-start text-left font-normal", !internalRange && "text-muted-foreground")}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
-            {range?.from ? (
-              range.to ? (
+            {internalRange?.from ? (
+              internalRange.to ? (
                 <>
-                  {format(range.from, "dd/MM/yyyy", { locale: es })} - {format(range.to, "dd/MM/yyyy", { locale: es })}
+                  {format(internalRange.from, "dd/MM/yyyy", { locale: es })} -{" "}
+                  {format(internalRange.to, "dd/MM/yyyy", { locale: es })}
                 </>
               ) : (
-                format(range.from, "dd/MM/yyyy", { locale: es })
+                format(internalRange.from, "dd/MM/yyyy", { locale: es })
               )
             ) : (
               <span>Selecciona un rango de fechas</span>
@@ -97,8 +107,8 @@ export function DateRangePicker({
           <Calendar
             initialFocus
             mode="range"
-            defaultMonth={currentMonth}
-            selected={range}
+            defaultMonth={defaultMonth}
+            selected={internalRange}
             onSelect={handleDateChange}
             numberOfMonths={2}
             locale={es}

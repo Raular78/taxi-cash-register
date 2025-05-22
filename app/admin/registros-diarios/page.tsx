@@ -424,6 +424,12 @@ export default function AdminDailyRecordsPage() {
     return filteredRecords.reduce((sum, record) => sum + record.netAmount, 0)
   }
 
+  // Función para manejar el cambio de rango de fechas
+  const handleDateRangeChange = (range: { from: Date; to: Date }) => {
+    console.log("Nuevo rango de fechas:", range)
+    setDateRange(range)
+  }
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       <BackToAdminButton />
@@ -488,14 +494,8 @@ export default function AdminDailyRecordsPage() {
               />
             </div>
 
-            {/* Aquí está el cambio: usar dateRange y onRangeChange en lugar de from/to/onFromChange/onToChange */}
-            <DateRangePicker
-              dateRange={{
-                from: dateRange.from,
-                to: dateRange.to,
-              }}
-              onRangeChange={(range) => setDateRange(range)}
-            />
+            {/* Usar el componente DateRangePicker con la nueva API */}
+            <DateRangePicker dateRange={dateRange} onRangeChange={handleDateRangeChange} />
 
             <Select value={driverFilter} onValueChange={setDriverFilter}>
               <SelectTrigger>
