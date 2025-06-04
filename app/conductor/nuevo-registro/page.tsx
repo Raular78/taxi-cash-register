@@ -25,11 +25,14 @@ export default function NuevoRegistroPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isJornadaPartida, setIsJornadaPartida] = useState(false)
 
+  // Modificar el estado inicial para incluir totalAmount como campo de entrada
+  // y cashAmount como campo calculado
   const [formData, setFormData] = useState({
     date: new Date(),
     startKm: 0,
     endKm: 0,
-    cashAmount: 0,
+    totalAmount: 0, // Total recaudado (campo de entrada)
+    cashAmount: 0, // Efectivo (campo calculado)
     cardAmount: 0,
     invoiceAmount: 0,
     otherAmount: 0,
@@ -59,7 +62,7 @@ export default function NuevoRegistroPage() {
       [
         "startKm",
         "endKm",
-        "cashAmount",
+        "totalAmount", // Cambiado de cashAmount a totalAmount
         "cardAmount",
         "invoiceAmount",
         "otherAmount",
@@ -88,16 +91,35 @@ export default function NuevoRegistroPage() {
     }
   }
 
+  // Modificar la función calculateTotals para implementar la nueva lógica
   const calculateTotals = () => {
     const totalKm = formData.endKm - formData.startKm
-    const totalAmount = formData.cashAmount + formData.cardAmount + formData.invoiceAmount + formData.otherAmount
+
+    // El total recaudado es un valor de entrada
+    const totalAmount = formData.totalAmount
+
+    // Calcular la comisión del conductor (35% del total recaudado)
+    const driverCommission = totalAmount * 0.35
+
+    // Calcular los gastos
     const totalExpenses = formData.fuelExpense + formData.otherExpenses
-    const netAmount = totalAmount - totalExpenses
-    const driverCommission = netAmount * 0.5 // 50% por defecto
+
+    // Calcular el efectivo como el total menos todos los demás conceptos
+    const cashAmount =
+      totalAmount -
+      formData.cardAmount -
+      formData.invoiceAmount -
+      formData.otherAmount -
+      totalExpenses -
+      driverCommission
+
+    // El neto para la empresa es el total menos la comisión del conductor y los gastos
+    const netAmount = totalAmount - driverCommission - totalExpenses
 
     return {
       totalKm,
       totalAmount,
+      cashAmount,
       totalExpenses,
       netAmount,
       driverCommission,
@@ -141,13 +163,14 @@ export default function NuevoRegistroPage() {
     e.preventDefault()
     setIsLoading(true)
 
-    const { totalKm, totalAmount, netAmount, driverCommission } = calculateTotals()
+    const { totalKm, totalAmount, cashAmount, netAmount, driverCommission } = calculateTotals()
 
     // Preparar datos para enviar
     const dataToSend = {
       ...formData,
       totalKm,
       totalAmount,
+      cashAmount, // Ahora es un valor calculado
       netAmount,
       driverCommission,
       // Si es jornada partida, incluir los datos de descanso
@@ -158,7 +181,7 @@ export default function NuevoRegistroPage() {
     }
 
     try {
-      const response = await fetch("/api/daily-records", {
+      const response = await fetch("/api/records", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -368,25 +391,27 @@ export default function NuevoRegistroPage() {
             </CardContent>
           </Card>
 
-          {/* Ingresos */}
+          {/* Ingresos - Modificado para usar totalAmount como entrada y cashAmount como calculado */}
           <Card>
             <CardHeader>
               <CardTitle>Ingresos</CardTitle>
               <CardDescription>Ingresos por método de pago</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="totalAmount">Total Recaudado</Label>
+                <Input
+                  id="totalAmount"
+                  name="totalAmount"
+                  type="number"
+                  step="0.01"
+                  value={formData.totalAmount}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="cashAmount">Efectivo</Label>
-                  <Input
-                    id="cashAmount"
-                    name="cashAmount"
-                    type="number"
-                    step="0.01"
-                    value={formData.cashAmount}
-                    onChange={handleInputChange}
-                  />
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="cardAmount">Tarjeta</Label>
                   <Input
@@ -398,9 +423,6 @@ export default function NuevoRegistroPage() {
                     onChange={handleInputChange}
                   />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="invoiceAmount">Factura</Label>
                   <Input
@@ -412,6 +434,9 @@ export default function NuevoRegistroPage() {
                     onChange={handleInputChange}
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="otherAmount">Otros</Label>
                   <Input
@@ -423,12 +448,16 @@ export default function NuevoRegistroPage() {
                     onChange={handleInputChange}
                   />
                 </div>
-              </div>
-
-              <div className="pt-2">
-                <div className="flex justify-between items-center py-2">
-                  <span className="font-medium">Total Ingresos:</span>
-                  <span className="font-bold text-lg">{totals.totalAmount.toFixed(2)} €</span>
+                <div className="space-y-2">
+                  <Label htmlFor="calculatedCash">Efectivo (calculado)</Label>
+                  <Input
+                    id="calculatedCash"
+                    type="number"
+                    step="0.01"
+                    value={totals.cashAmount.toFixed(2)}
+                    disabled
+                    className="bg-muted"
+                  />
                 </div>
               </div>
             </CardContent>
@@ -486,7 +515,7 @@ export default function NuevoRegistroPage() {
             </CardContent>
           </Card>
 
-          {/* Resumen */}
+          {/* Resumen - Modificado para mostrar la nueva lógica de cálculo */}
           <Card>
             <CardHeader>
               <CardTitle>Resumen</CardTitle>
@@ -495,21 +524,25 @@ export default function NuevoRegistroPage() {
             <CardContent className="space-y-4">
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <span>Total Ingresos:</span>
+                  <span>Total Recaudado:</span>
                   <span>{totals.totalAmount.toFixed(2)} €</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span>Total Gastos:</span>
                   <span>{totals.totalExpenses.toFixed(2)} €</span>
                 </div>
+                <div className="flex justify-between items-center">
+                  <span>Comisión Conductor (35%):</span>
+                  <span>{totals.driverCommission.toFixed(2)} €</span>
+                </div>
                 <Separator />
                 <div className="flex justify-between items-center font-medium">
-                  <span>Importe Neto:</span>
+                  <span>Neto Empresa:</span>
                   <span>{totals.netAmount.toFixed(2)} €</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span>Comisión Conductor (50%):</span>
-                  <span>{totals.driverCommission.toFixed(2)} €</span>
+                <div className="flex justify-between items-center text-green-600 font-medium">
+                  <span>Efectivo Calculado:</span>
+                  <span>{totals.cashAmount.toFixed(2)} €</span>
                 </div>
               </div>
 

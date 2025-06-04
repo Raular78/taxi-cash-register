@@ -167,7 +167,7 @@ export default function NuevoRegistroPage() {
     }
 
     try {
-      const response = await fetch("/api/daily-records", {
+      const response = await fetch("/api/records", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -1,501 +1,720 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
-import { format, startOfWeek, endOfWeek, subMonths } from "date-fns"
+import { useRouter } from "next/navigation"
+import { format, startOfMonth, endOfMonth, subDays, startOfWeek, endOfWeek } from "date-fns"
 import { es } from "date-fns/locale"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../components/ui/card"
-import { Button } from "../../components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
-import { CalendarDays, Car, CreditCard, DollarSign, FileText, Fuel, Plus, Calendar } from "lucide-react"
-import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover"
-import type { DateRange } from "react-day-picker"
-import { Calendar as CalendarComponent } from "../../components/ui/calendar"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { DateRangePicker } from "@/components/ui/date-range-picker"
+import { Skeleton } from "@/components/ui/skeleton"
+import { toast } from "@/components/ui/use-toast"
+import { Euro, Fuel, TrendingUp, Plus, FileText, BarChart3, Clock, MapPin, AlertCircle, Download } from "lucide-react"
+import Link from "next/link"
+import TimeTracker from "@/app/components/TimeTracker"
 
 interface DailyRecord {
   id: number
   date: string
+  startKm: number
+  endKm: number
   totalKm: number
-  totalAmount: number
   cashAmount: number
   cardAmount: number
+  invoiceAmount: number
+  otherAmount: number
+  totalAmount: number
   fuelExpense: number
+  otherExpenses: number
   driverCommission: number
   netAmount: number
-  shiftStart: string | null
-  shiftEnd: string | null
+  shiftStart?: string
+  shiftEnd?: string
+  driver?: {
+    id: number
+    username: string
+  }
 }
 
-interface ChartData {
-  name: string
+interface WeeklyData {
+  week: string
   ingresos: number
   gastos: number
   comision: number
 }
 
+interface Payroll {
+  id: number
+  netAmount: number
+  baseSalary: number
+  commissions: number
+  bonuses: number
+  deductions: number
+  taxWithholding: number
+  status: string
+  paymentDate: string | null
+  pdfUrl: string | null
+}
+
+interface PayrollResponse {
+  found: boolean
+  payroll?: Payroll
+  defaultSalary?: number
+}
+
 export default function ConductorDashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [dailyRecords, setDailyRecords] = useState<DailyRecord[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [chartData, setChartData] = useState<ChartData[]>([])
-
-  // Estado para el selector de rango de fechas
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: startOfWeek(new Date(), { weekStartsOn: 1 }),
-    to: endOfWeek(new Date(), { weekStartsOn: 1 }),
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [records, setRecords] = useState<DailyRecord[]>([])
+  const [debugInfo, setDebugInfo] = useState<string>("")
+  const [payrollData, setPayrollData] = useState<PayrollResponse | null>(null)
+  const [dateRange, setDateRange] = useState({
+    from: startOfMonth(new Date()),
+    to: endOfMonth(new Date()),
   })
+  const [weeklyData, setWeeklyData] = useState<WeeklyData[]>([])
+  const [activeTab, setActiveTab] = useState<"resumen" | "detalles">("resumen")
+
+  // Presets de fechas
+  const datePresets = [
+    {
+      label: "Esta semana",
+      range: {
+        from: startOfWeek(new Date(), { weekStartsOn: 1 }),
+        to: endOfWeek(new Date(), { weekStartsOn: 1 }),
+      },
+    },
+    {
+      label: "Último mes",
+      range: {
+        from: startOfMonth(subDays(new Date(), 30)),
+        to: endOfMonth(subDays(new Date(), 30)),
+      },
+    },
+    {
+      label: "Este mes",
+      range: {
+        from: startOfMonth(new Date()),
+        to: endOfMonth(new Date()),
+      },
+    },
+  ]
 
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login")
+    } else if (session?.user?.role !== "driver" && status === "authenticated") {
+      router.push("/dashboard")
     }
-  }, [status, router])
+  }, [status, session, router])
 
   useEffect(() => {
-    if (status === "authenticated" && dateRange?.from && dateRange?.to) {
-      fetchData(dateRange.from, dateRange.to)
+    if (session) {
+      fetchRecords()
+      fetchPayrollData()
     }
-  }, [status, dateRange])
+  }, [session, dateRange])
 
-  const fetchData = async (startDate: Date, endDate: Date) => {
-    setIsLoading(true)
+  const fetchPayrollData = async () => {
     try {
-      // Obtener registros diarios del rango de fechas seleccionado
-      const formattedStartDate = format(startDate, "yyyy-MM-dd")
-      const formattedEndDate = format(endDate, "yyyy-MM-dd")
+      const fromDate = format(dateRange.from, "yyyy-MM-dd")
+      const toDate = format(dateRange.to, "yyyy-MM-dd")
 
-      const recordsResponse = await fetch(
-        `/api/daily-records?startDate=${formattedStartDate}&endDate=${formattedEndDate}`,
-      )
+      const response = await fetch(`/api/payrolls/conductor?startDate=${fromDate}&endDate=${toDate}`)
 
-      if (recordsResponse.ok) {
-        const recordsData = await recordsResponse.json()
-        setDailyRecords(recordsData)
-
-        // Preparar datos para el gráfico
-        const chartData = processChartData(recordsData)
-        setChartData(chartData)
+      if (!response.ok) {
+        throw new Error("Error al obtener datos de nómina")
       }
+
+      const data = await response.json()
+      setPayrollData(data)
+      console.log("Payroll data:", data)
     } catch (error) {
-      console.error("Error al cargar datos:", error)
-    } finally {
-      setIsLoading(false)
+      console.error("Error fetching payroll data:", error)
+      // Si hay error, usar valor por defecto
+      setPayrollData({
+        found: false,
+        defaultSalary: 1400,
+      })
     }
   }
 
-  const processChartData = (records: DailyRecord[]): ChartData[] => {
-    // Agrupar por día de la semana
-    const groupedByDay = records.reduce((acc: Record<string, ChartData>, record) => {
-      const date = new Date(record.date)
-      const dayName = format(date, "EEE", { locale: es })
+  const fetchRecords = async () => {
+    if (!session) return
 
-      if (!acc[dayName]) {
-        acc[dayName] = {
-          name: dayName,
-          ingresos: 0,
-          gastos: 0,
-          comision: 0,
-        }
+    setLoading(true)
+    setError(null)
+    setDebugInfo("")
+
+    try {
+      const fromDate = format(dateRange.from, "yyyy-MM-dd")
+      const toDate = format(dateRange.to, "yyyy-MM-dd")
+
+      console.log(`Fetching records from ${fromDate} to ${toDate}`)
+      console.log("Current session:", session.user)
+
+      const response = await fetch(`/api/records?from=${fromDate}&to=${toDate}`)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(`Error ${response.status}: ${errorData.error || "Error desconocido"}`)
       }
 
-      acc[dayName].ingresos += record.totalAmount
-      acc[dayName].gastos += record.fuelExpense
-      acc[dayName].comision += record.driverCommission
+      const data = await response.json()
+      console.log("Records fetched:", data)
 
-      return acc
-    }, {})
+      // Actualizar información de debug
+      setDebugInfo(`
+        Usuario: ${session.user.username} (ID: ${session.user.id})
+        Rol: ${session.user.role}
+        Registros encontrados: ${Array.isArray(data) ? data.length : 0}
+        Rango de fechas: ${fromDate} - ${toDate}
+        Respuesta de la API: ${JSON.stringify(data, null, 2)}
+      `)
 
-    // Convertir a array para el gráfico
-    return Object.values(groupedByDay)
+      // Si no hay datos, usar un array vacío
+      setRecords(Array.isArray(data) ? data : [])
+
+      // Procesar datos semanales solo si hay registros
+      if (Array.isArray(data) && data.length > 0) {
+        processWeeklyData(data)
+      } else {
+        setWeeklyData([])
+      }
+    } catch (error) {
+      console.error("Error fetching records:", error)
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido"
+      setError(`No se pudieron cargar los registros: ${errorMessage}`)
+      setDebugInfo(`
+        Error: ${errorMessage}
+        Usuario: ${session.user.username} (ID: ${session.user.id})
+        Rol: ${session.user.role}
+      `)
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
+      // Establecer arrays vacíos para evitar errores en la UI
+      setRecords([])
+      setWeeklyData([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const processWeeklyData = (records: DailyRecord[]) => {
+    try {
+      const weeklyMap = new Map<string, { ingresos: number; gastos: number; comision: number }>()
+
+      records.forEach((record) => {
+        const date = new Date(record.date)
+        const weekStart = startOfWeek(date, { weekStartsOn: 1 })
+        const weekKey = format(weekStart, "dd/MM", { locale: es })
+
+        const existing = weeklyMap.get(weekKey) || { ingresos: 0, gastos: 0, comision: 0 }
+
+        weeklyMap.set(weekKey, {
+          ingresos: existing.ingresos + (record.totalAmount || 0),
+          gastos: existing.gastos + ((record.fuelExpense || 0) + (record.otherExpenses || 0)),
+          comision: existing.comision + (record.driverCommission || 0),
+        })
+      })
+
+      const weeklyArray = Array.from(weeklyMap.entries()).map(([week, data]) => ({
+        week,
+        ...data,
+      }))
+
+      setWeeklyData(weeklyArray)
+    } catch (error) {
+      console.error("Error processing weekly data:", error)
+      setWeeklyData([])
+    }
   }
 
   const calculateTotals = () => {
-    return dailyRecords.reduce(
-      (acc, record) => {
-        acc.totalKm += record.totalKm
-        acc.totalAmount += record.totalAmount
-        acc.cashAmount += record.cashAmount
-        acc.cardAmount += record.cardAmount
-        acc.fuelExpense += record.fuelExpense
-        acc.driverCommission += record.driverCommission
-        acc.netAmount += record.netAmount
-        return acc
-      },
+    return records.reduce(
+      (acc, record) => ({
+        totalIncome: acc.totalIncome + (record.totalAmount || 0),
+        totalKm: acc.totalKm + (record.totalKm || 0),
+        totalFuelExpense: acc.totalFuelExpense + ((record.fuelExpense || 0) + (record.otherExpenses || 0)),
+        totalCommission: acc.totalCommission + (record.driverCommission || 0),
+        totalCash: acc.totalCash + (record.cashAmount || 0),
+        totalCard: acc.totalCard + (record.cardAmount || 0),
+        totalInvoice: acc.totalInvoice + (record.invoiceAmount || 0),
+        totalOther: acc.totalOther + (record.otherAmount || 0),
+      }),
       {
+        totalIncome: 0,
         totalKm: 0,
-        totalAmount: 0,
-        cashAmount: 0,
-        cardAmount: 0,
-        fuelExpense: 0,
-        driverCommission: 0,
-        netAmount: 0,
+        totalFuelExpense: 0,
+        totalCommission: 0,
+        totalCash: 0,
+        totalCard: 0,
+        totalInvoice: 0,
+        totalOther: 0,
       },
     )
+  }
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("es-ES", {
+      style: "currency",
+      currency: "EUR",
+    }).format(amount)
+  }
+
+  const handleDateRangeChange = (range: { from: Date; to: Date }) => {
+    setDateRange(range)
+  }
+
+  const handlePresetClick = (preset: { label: string; range: { from: Date; to: Date } }) => {
+    setDateRange(preset.range)
+  }
+
+  // Si está cargando la sesión, mostrar un indicador de carga
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
+          <p className="mt-4">Cargando sesión...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Si no hay sesión o el usuario no es conductor, no mostrar nada
+  if (status === "authenticated" && session?.user?.role !== "driver") {
+    return null
   }
 
   const totals = calculateTotals()
 
-  // Funciones para los presets de fechas
-  const setThisWeek = () => {
-    setDateRange({
-      from: startOfWeek(new Date(), { weekStartsOn: 1 }),
-      to: endOfWeek(new Date(), { weekStartsOn: 1 }),
-    })
-  }
+  // Determinar el valor de la nómina y calcular el efectivo
+  const nominaValue = payrollData?.found ? payrollData.payroll?.netAmount : payrollData?.defaultSalary || 1400
 
-  const setLastMonth = () => {
-    const today = new Date()
-    const lastMonth = subMonths(today, 1)
-    setDateRange({
-      from: new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1),
-      to: new Date(lastMonth.getFullYear(), lastMonth.getMonth() + 1, 0),
-    })
-  }
-
-  if (status === "loading" || isLoading) {
-    return (
-      <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-4">Cargando...</h1>
-      </div>
-    )
-  }
+  const cashBonus = Math.max(0, totals.totalCommission - nominaValue)
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
-        <h1 className="text-2xl font-bold">Panel del Conductor</h1>
-        <div className="flex flex-wrap gap-2">
-          {/* Selector de rango de fechas */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="justify-start">
-                <Calendar className="mr-2 h-4 w-4" />
-                {dateRange?.from ? (
-                  dateRange.to ? (
-                    <>
-                      {format(dateRange.from, "dd/MM/yyyy")} - {format(dateRange.to, "dd/MM/yyyy")}
-                    </>
-                  ) : (
-                    format(dateRange.from, "dd/MM/yyyy")
-                  )
-                ) : (
-                  <span>Seleccionar fechas</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-auto p-0 bg-white text-black border-2 shadow-xl"
-              align="end"
-              sideOffset={5}
-              style={{ backgroundColor: "white", color: "black", opacity: 1 }}
-            >
-              <div className="p-3 border-b bg-white text-black" style={{ backgroundColor: "white", color: "black" }}>
-                <div className="flex justify-between gap-2">
-                  <Button variant="outline" size="sm" onClick={setThisWeek} className="text-black border-black">
-                    Esta semana
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 py-6 space-y-6">
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-bold">Panel del Conductor</h1>
+            <p className="text-muted-foreground">
+              Bienvenido, {session?.user?.username || "Conductor"}. Aquí tienes tu resumen de actividad.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button asChild variant="outline" className="w-full sm:w-auto">
+              <Link href="/conductor/registros-diarios">
+                <FileText className="h-4 w-4 mr-2" />
+                Ver Registros
+              </Link>
+            </Button>
+            <Button asChild className="w-full sm:w-auto">
+              <Link href="/conductor/nuevo-registro">
+                <Plus className="h-4 w-4 mr-2" />
+                Nuevo Registro
+              </Link>
+            </Button>
+          </div>
+        </div>
+
+        {/* Información de debug si hay error o no hay datos */}
+        {(error || records.length === 0) && debugInfo && (
+          <Card className="border-orange-200 bg-orange-50">
+            <CardHeader>
+              <CardTitle className="flex items-center text-orange-800">
+                <AlertCircle className="h-5 w-5 mr-2" />
+                Información de Debug
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <pre className="text-xs text-orange-700 whitespace-pre-wrap overflow-x-auto">{debugInfo}</pre>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={fetchRecords}>
+                  Reintentar
+                </Button>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/admin/registros-diarios">Ver Panel Admin</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Filtros de fecha */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Período de Consulta</CardTitle>
+            <CardDescription>Selecciona el rango de fechas para ver tus estadísticas</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="flex-1">
+                <DateRangePicker dateRange={dateRange} onRangeChange={handleDateRangeChange} className="w-full" />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {datePresets.map((preset) => (
+                  <Button
+                    key={preset.label}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePresetClick(preset)}
+                    className="text-xs"
+                  >
+                    {preset.label}
                   </Button>
-                  <Button variant="outline" size="sm" onClick={setLastMonth} className="text-black border-black">
-                    Último mes
-                  </Button>
+                ))}
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground mt-2">
+              Mostrando datos del {format(dateRange.from, "dd/MM/yyyy", { locale: es })} al{" "}
+              {format(dateRange.to, "dd/MM/yyyy", { locale: es })}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Mensaje de error si hay alguno */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-4">
+            <p>{error}</p>
+            <Button variant="outline" size="sm" onClick={fetchRecords} className="mt-2">
+              Reintentar
+            </Button>
+          </div>
+        )}
+
+        {/* Estadísticas principales */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle>
+              <Euro className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl lg:text-2xl font-bold">
+                {loading ? <Skeleton className="h-6 w-20" /> : formatCurrency(totals.totalIncome)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {format(dateRange.from, "dd/MM", { locale: es })} - {format(dateRange.to, "dd/MM", { locale: es })}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Kilómetros</CardTitle>
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl lg:text-2xl font-bold">
+                {loading ? <Skeleton className="h-6 w-20" /> : `${totals.totalKm} km`}
+              </div>
+              <p className="text-xs text-muted-foreground">Distancia recorrida</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Gastos Combustible</CardTitle>
+              <Fuel className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl lg:text-2xl font-bold">
+                {loading ? <Skeleton className="h-6 w-20" /> : formatCurrency(totals.totalFuelExpense)}
+              </div>
+              <p className="text-xs text-muted-foreground">Gastos del período</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Comisión Conductor</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl lg:text-2xl font-bold">
+                {loading ? <Skeleton className="h-6 w-20" /> : formatCurrency(totals.totalCommission)}
+              </div>
+              <p className="text-xs text-muted-foreground">Tu comisión (35%)</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Gráfico de evolución semanal */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <BarChart3 className="h-5 w-5 mr-2" />
+              Evolución Semanal
+            </CardTitle>
+            <CardDescription>Ingresos, gastos y comisiones por semana</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="h-64 flex items-center justify-center">
+                <Skeleton className="h-full w-full" />
+              </div>
+            ) : weeklyData.length > 0 ? (
+              <div className="h-64 w-full">
+                <div className="flex items-end justify-between h-full space-x-2">
+                  {weeklyData.map((week, index) => {
+                    const maxValue = Math.max(...weeklyData.map((w) => Math.max(w.ingresos, w.gastos, w.comision)))
+                    const ingresosHeight = maxValue > 0 ? (week.ingresos / maxValue) * 100 : 0
+                    const gastosHeight = maxValue > 0 ? (week.gastos / maxValue) * 100 : 0
+                    const comisionHeight = maxValue > 0 ? (week.comision / maxValue) * 100 : 0
+
+                    return (
+                      <div key={index} className="flex-1 flex flex-col items-center space-y-1">
+                        <div className="flex items-end space-x-1 h-48">
+                          <div
+                            className="bg-green-500 w-4 rounded-t"
+                            style={{ height: `${ingresosHeight}%` }}
+                            title={`Ingresos: ${formatCurrency(week.ingresos)}`}
+                          />
+                          <div
+                            className="bg-red-500 w-4 rounded-t"
+                            style={{ height: `${gastosHeight}%` }}
+                            title={`Gastos: ${formatCurrency(week.gastos)}`}
+                          />
+                          <div
+                            className="bg-blue-500 w-4 rounded-t"
+                            style={{ height: `${comisionHeight}%` }}
+                            title={`Comisión: ${formatCurrency(week.comision)}`}
+                          />
+                        </div>
+                        <span className="text-xs text-muted-foreground">{week.week}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="flex justify-center mt-4 space-x-4 text-xs">
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-green-500 rounded mr-1" />
+                    Ingresos
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-red-500 rounded mr-1" />
+                    Gastos
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-blue-500 rounded mr-1" />
+                    Comisión
+                  </div>
                 </div>
               </div>
-              <div className="bg-white p-4 rounded-b-md" style={{ backgroundColor: "white" }}>
-                <style jsx global>{`
-                  .rdp {
-                    --rdp-cell-size: 40px;
-                    --rdp-accent-color: #0000ff;
-                    --rdp-background-color: #e7edff;
-                    --rdp-accent-color-dark: #3003e1;
-                    --rdp-background-color-dark: #180270;
-                    --rdp-outline: 2px solid var(--rdp-accent-color);
-                    --rdp-outline-selected: 2px solid rgba(0, 0, 0, 0.75);
-                    --rdp-selected-color: #fff;
-                    --rdp-text-color: black;
-                    margin: 0;
-                  }
-                  .rdp-day_selected, .rdp-day_selected:focus-visible, .rdp-day_selected:hover {
-                    color: white;
-                    background-color: var(--rdp-accent-color);
-                  }
-                  .rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
-                    background-color: #f0f0f0;
-                  }
-                `}</style>
-                <CalendarComponent
-                  initialFocus
-                  mode="range"
-                  defaultMonth={dateRange?.from}
-                  selected={dateRange}
-                  onSelect={setDateRange}
-                  numberOfMonths={1}
-                  className="bg-white border rounded-md"
-                  classNames={{
-                    day_selected: "bg-blue-600 text-white",
-                    day_today: "bg-gray-100 text-black font-bold",
-                    day_range_middle: "bg-blue-100 text-black",
-                    day_range_end: "bg-blue-600 text-white",
-                    day_range_start: "bg-blue-600 text-white",
-                    button: "text-black hover:bg-gray-100",
-                    caption_label: "text-black font-bold",
-                    nav_button: "text-black hover:bg-gray-100",
-                    table: "bg-white border-collapse",
-                    head_cell: "text-black font-bold",
-                    cell: "text-black",
-                    day: "text-black hover:bg-gray-100",
-                  }}
-                />
+            ) : (
+              <div className="h-64 flex items-center justify-center text-muted-foreground">
+                No hay datos para mostrar en este período
               </div>
-            </PopoverContent>
-          </Popover>
+            )}
+          </CardContent>
+        </Card>
 
-          <Button variant="outline" onClick={() => router.push("/conductor/registros-diarios")}>
-            <FileText className="mr-2 h-4 w-4" />
-            Ver Registros
+        {/* Tabs para resumen y detalles */}
+        <div className="flex space-x-1 bg-muted p-1 rounded-lg w-fit">
+          <Button
+            variant={activeTab === "resumen" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setActiveTab("resumen")}
+          >
+            Resumen
           </Button>
-          <Button onClick={() => router.push("/conductor/nuevo-registro")}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo Registro
+          <Button
+            variant={activeTab === "detalles" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setActiveTab("detalles")}
+          >
+            Detalles
           </Button>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle>
-            <CardDescription>
-              {dateRange?.from && dateRange?.to ? (
-                <>
-                  {format(dateRange.from, "dd/MM/yyyy")} - {format(dateRange.to, "dd/MM/yyyy")}
-                </>
-              ) : (
-                "Período seleccionado"
-              )}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold flex items-center">
-              <DollarSign className="mr-2 h-5 w-5 text-green-500" />
-              {totals.totalAmount.toFixed(2)}€
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Kilómetros</CardTitle>
-            <CardDescription>
-              {dateRange?.from && dateRange?.to ? (
-                <>
-                  {format(dateRange.from, "dd/MM/yyyy")} - {format(dateRange.to, "dd/MM/yyyy")}
-                </>
-              ) : (
-                "Período seleccionado"
-              )}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold flex items-center">
-              <Car className="mr-2 h-5 w-5 text-blue-500" />
-              {totals.totalKm} km
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Gastos Combustible</CardTitle>
-            <CardDescription>
-              {dateRange?.from && dateRange?.to ? (
-                <>
-                  {format(dateRange.from, "dd/MM/yyyy")} - {format(dateRange.to, "dd/MM/yyyy")}
-                </>
-              ) : (
-                "Período seleccionado"
-              )}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold flex items-center">
-              <Fuel className="mr-2 h-5 w-5 text-red-500" />
-              {totals.fuelExpense.toFixed(2)}€
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Comisión Conductor</CardTitle>
-            <CardDescription>
-              {dateRange?.from && dateRange?.to ? (
-                <>
-                  {format(dateRange.from, "dd/MM/yyyy")} - {format(dateRange.to, "dd/MM/yyyy")}
-                </>
-              ) : (
-                "Período seleccionado"
-              )}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold flex items-center">
-              <CreditCard className="mr-2 h-5 w-5 text-purple-500" />
-              {totals.driverCommission.toFixed(2)}€
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <Card className="col-span-1 lg:col-span-3">
-          <CardHeader>
-            <CardTitle>Evolución Semanal</CardTitle>
-            <CardDescription>Ingresos, gastos y comisiones</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              {chartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="ingresos" name="Ingresos" fill="#10b981" />
-                    <Bar dataKey="gastos" name="Gastos" fill="#ef4444" />
-                    <Bar dataKey="comision" name="Comisión" fill="#8b5cf6" />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-muted-foreground">No hay datos suficientes para mostrar el gráfico</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs defaultValue="resumen" className="mb-6">
-        <TabsList>
-          <TabsTrigger value="resumen">Resumen</TabsTrigger>
-          <TabsTrigger value="detalles">Detalles</TabsTrigger>
-        </TabsList>
-        <TabsContent value="resumen">
+        {/* Contenido de las tabs */}
+        {activeTab === "resumen" && (
           <Card>
             <CardHeader>
               <CardTitle>Resumen del Período</CardTitle>
               <CardDescription>
-                {dateRange?.from && dateRange?.to ? (
-                  <>
-                    {format(dateRange.from, "dd/MM/yyyy", { locale: es })} -
-                    {format(dateRange.to, "dd/MM/yyyy", { locale: es })}
-                  </>
-                ) : (
-                  "Período seleccionado"
-                )}
+                {format(dateRange.from, "dd/MM/yyyy", { locale: es })} -{" "}
+                {format(dateRange.to, "dd/MM/yyyy", { locale: es })}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h3 className="font-semibold mb-2">Ingresos</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>Efectivo:</span>
-                      <span>{totals.cashAmount.toFixed(2)}€</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Tarjeta:</span>
-                      <span>{totals.cardAmount.toFixed(2)}€</span>
-                    </div>
-                    <div className="flex justify-between font-bold">
-                      <span>Total:</span>
-                      <span>{totals.totalAmount.toFixed(2)}€</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold mb-2">Gastos y Comisiones</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>Combustible:</span>
-                      <span>{totals.fuelExpense.toFixed(2)}€</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Comisión:</span>
-                      <span>{totals.driverCommission.toFixed(2)}€</span>
-                    </div>
-                    <div className="flex justify-between font-bold">
-                      <span>Neto:</span>
-                      <span>{totals.netAmount.toFixed(2)}€</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button variant="outline" className="w-full" onClick={() => router.push("/conductor/registros-diarios")}>
-                <CalendarDays className="mr-2 h-4 w-4" />
-                Ver todos los registros
-              </Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-        <TabsContent value="detalles">
-          <Card>
-            <CardHeader>
-              <CardTitle>Registros Diarios</CardTitle>
-              <CardDescription>Registros del período seleccionado</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {dailyRecords.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-2">Fecha</th>
-                        <th className="text-right py-2">Km</th>
-                        <th className="text-right py-2">Ingresos</th>
-                        <th className="text-right py-2">Gastos</th>
-                        <th className="text-right py-2">Comisión</th>
-                        <th className="text-right py-2">Horario</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dailyRecords.map((record) => (
-                        <tr key={record.id} className="border-b hover:bg-gray-50">
-                          <td className="py-2">{format(new Date(record.date), "dd/MM/yyyy")}</td>
-                          <td className="text-right py-2">{record.totalKm} km</td>
-                          <td className="text-right py-2">{record.totalAmount.toFixed(2)}€</td>
-                          <td className="text-right py-2">{record.fuelExpense.toFixed(2)}€</td>
-                          <td className="text-right py-2">{record.driverCommission.toFixed(2)}€</td>
-                          <td className="text-right py-2">
-                            {record.shiftStart && record.shiftEnd
-                              ? `${record.shiftStart} - ${record.shiftEnd}`
-                              : "No registrado"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              {loading ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-20 w-full" />
+                  <Skeleton className="h-20 w-full" />
+                  <Skeleton className="h-10 w-full" />
                 </div>
               ) : (
-                <div className="text-center py-4">No hay registros para este período</div>
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h3 className="font-semibold mb-3">Ingresos</h3>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span>Efectivo:</span>
+                          <span className="font-medium">{formatCurrency(totals.totalCash)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Tarjeta:</span>
+                          <span className="font-medium">{formatCurrency(totals.totalCard)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Facturación:</span>
+                          <span className="font-medium">{formatCurrency(totals.totalInvoice)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Otros:</span>
+                          <span className="font-medium">{formatCurrency(totals.totalOther)}</span>
+                        </div>
+                        <div className="border-t pt-2">
+                          <div className="flex justify-between font-semibold">
+                            <span>Total:</span>
+                            <span>{formatCurrency(totals.totalIncome)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="font-semibold mb-3">Nómina y Comisiones</h3>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span>Comisión (35%):</span>
+                          <span className="font-medium">{formatCurrency(totals.totalCommission)}</span>
+                        </div>
+                        <div className="pl-4 space-y-1 text-sm border-l-2 border-muted">
+                          <div className="flex justify-between">
+                            <span>Sujeto a Nómina:</span>
+                            <span className="font-medium">{formatCurrency(nominaValue)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Efectivo:</span>
+                            <span className="font-medium text-green-600">{formatCurrency(cashBonus)}</span>
+                          </div>
+                        </div>
+                        {totals.totalCommission < nominaValue && (
+                          <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded">
+                            La comisión es menor que la nómina base. Diferencia:{" "}
+                            {formatCurrency(nominaValue - totals.totalCommission)}
+                          </div>
+                        )}
+
+                        {/* Botón para descargar nómina si existe */}
+                        {payrollData?.found && payrollData.payroll?.pdfUrl && (
+                          <div className="mt-3">
+                            <Button variant="outline" size="sm" className="w-full" asChild>
+                              <a href={payrollData.payroll.pdfUrl} target="_blank" rel="noopener noreferrer">
+                                <Download className="h-4 w-4 mr-2" />
+                                Descargar Nómina
+                              </a>
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 p-4 bg-muted rounded-lg">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                      <div>
+                        <span className="text-lg font-semibold">Ganancia Total:</span>
+                        <p className="text-sm text-muted-foreground">Nómina + efectivo adicional</p>
+                      </div>
+                      <span className="text-xl font-bold text-green-600">{formatCurrency(totals.totalCommission)}</span>
+                    </div>
+                  </div>
+                </>
               )}
             </CardContent>
-            <CardFooter>
-              <Button variant="outline" className="w-full" onClick={() => router.push("/conductor/nuevo-registro")}>
-                <Plus className="mr-2 h-4 w-4" />
-                Añadir nuevo registro
-              </Button>
-            </CardFooter>
           </Card>
-        </TabsContent>
-      </Tabs>
+        )}
+
+        {activeTab === "detalles" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Registros Detallados</CardTitle>
+              <CardDescription>Lista de todos los registros en el período seleccionado</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : records.length > 0 ? (
+                <div className="space-y-3">
+                  {records.map((record) => (
+                    <div key={record.id} className="border rounded-lg p-4">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                        <div>
+                          <div className="font-medium">
+                            {format(new Date(record.date), "EEEE, dd 'de' MMMM", { locale: es })}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {record.shiftStart && record.shiftEnd && (
+                              <span className="flex items-center">
+                                <Clock className="h-3 w-3 mr-1" />
+                                {record.shiftStart} - {record.shiftEnd}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-medium">{formatCurrency(record.totalAmount || 0)}</div>
+                          <div className="text-sm text-muted-foreground">{record.totalKm || 0} km</div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Efectivo:</span>
+                          <div className="font-medium">{formatCurrency(record.cashAmount || 0)}</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Tarjeta:</span>
+                          <div className="font-medium">{formatCurrency(record.cardAmount || 0)}</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Gastos:</span>
+                          <div className="font-medium">
+                            {formatCurrency((record.fuelExpense || 0) + (record.otherExpenses || 0))}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Comisión:</span>
+                          <div className="font-medium text-green-600">
+                            {formatCurrency(record.driverCommission || 0)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>No hay registros en este período</p>
+                  <p className="text-sm mt-2">
+                    Los registros que crees desde el panel de administrador aparecerán aquí automáticamente.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Control horario */}
+        <TimeTracker />
+      </div>
     </div>
   )
 }

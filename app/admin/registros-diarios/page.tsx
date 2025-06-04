@@ -109,7 +109,7 @@ export default function AdminDailyRecordsPage() {
       const fromDate = format(dateRange.from, "yyyy-MM-dd")
       const toDate = format(dateRange.to, "yyyy-MM-dd")
 
-      let url = `/api/daily-records?from=${fromDate}&to=${toDate}`
+      let url = `/api/records?from=${fromDate}&to=${toDate}`
 
       if (driverFilter !== "all") {
         url += `&driverId=${driverFilter}`
@@ -246,7 +246,7 @@ export default function AdminDailyRecordsPage() {
     }
 
     try {
-      const response = await fetch("/api/daily-records", {
+      const response = await fetch("/api/records", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -994,3 +994,4 @@ export default function AdminDailyRecordsPage() {
     </div>
   )
 }
+

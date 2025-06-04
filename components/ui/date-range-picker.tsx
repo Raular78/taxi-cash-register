@@ -44,8 +44,12 @@ export function DateRangePicker({
 
   // Actualizar el estado interno cuando cambian las props
   React.useEffect(() => {
-    setInternalRange(range)
-  }, [range])
+    if (dateRange) {
+      setInternalRange(dateRange)
+    } else if (from && to) {
+      setInternalRange({ from, to })
+    }
+  }, [dateRange, from, to])
 
   // Calcular el mes actual para mostrar en el calendario
   const defaultMonth = React.useMemo(() => {
@@ -56,10 +60,10 @@ export function DateRangePicker({
     // Actualizar el estado interno primero
     setInternalRange(newRange)
 
-    if (!newRange) return
+    if (!newRange?.from || !newRange?.to) return
 
     // Si se proporciona onRangeChange, usarlo
-    if (typeof onRangeChange === "function" && newRange?.from && newRange?.to) {
+    if (typeof onRangeChange === "function") {
       onRangeChange({
         from: newRange.from,
         to: newRange.to,

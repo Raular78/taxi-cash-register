@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card"
@@ -8,9 +10,11 @@ import { Button } from "../../../components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select"
 import { format, parseISO, isValid } from "date-fns"
 import { es } from "date-fns/locale"
-import { FileText, Download, Plus, Search, FileCheck, FileClock, Upload } from "lucide-react"
+import { FileText, Download, Plus, Search, FileCheck, FileClock, Upload, Settings } from "lucide-react"
 import { Input } from "../../../components/ui/input"
 import { Badge } from "../../../components/ui/badge"
+import { Label } from "../../../components/ui/label"
+import { toast } from "../../../components/ui/use-toast"
 
 interface Payroll {
   id: number
@@ -49,6 +53,8 @@ export default function AdminNominas() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [baseSalary, setBaseSalary] = useState<number>(1400)
+  const [isUpdatingConfig, setIsUpdatingConfig] = useState(false)
 
   // Función para formatear fecha
   const formatDate = (dateStr: string | null) => {
@@ -68,10 +74,63 @@ export default function AdminNominas() {
     return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(amount)
   }
 
+  // Función para obtener configuración de nómina base
+  const fetchBaseSalaryConfig = async () => {
+    try {
+      const response = await fetch("/api/configuration?key=driver_base_salary")
+      if (response.ok) {
+        const data = await response.json()
+        setBaseSalary(data && data.value ? Number.parseFloat(data.value) : 1400)
+      }
+    } catch (error) {
+      console.error("Error fetching salary configuration:", error)
+    }
+  }
+
+  // Función para actualizar configuración de nómina base
+  const updateBaseSalary = async (newSalary: number) => {
+    setIsUpdatingConfig(true)
+    try {
+      const response = await fetch("/api/configuration", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          key: "driver_base_salary",
+          value: newSalary.toString(),
+          description: "Salario base fijo para conductores (€/mes)",
+        }),
+      })
+
+      if (response.ok) {
+        setBaseSalary(newSalary)
+        toast({
+          title: "Configuración actualizada",
+          description: `Nómina base establecida en ${formatCurrency(newSalary)}`,
+        })
+      } else {
+        throw new Error("Error al actualizar configuración")
+      }
+    } catch (error) {
+      console.error("Error updating salary configuration:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar la configuración",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUpdatingConfig(false)
+    }
+  }
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true)
+
+        // Obtener configuración de nómina base
+        await fetchBaseSalaryConfig()
 
         // Obtener usuarios (conductores)
         const usersResponse = await fetch("/api/users?role=driver")
@@ -135,6 +194,23 @@ export default function AdminNominas() {
     router.push("/admin/nominas/cargar-pdf")
   }
 
+  const handleSalarySubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const formData = new FormData(e.currentTarget)
+    const newSalary = Number.parseFloat(formData.get("baseSalary") as string)
+
+    if (isNaN(newSalary) || newSalary < 0) {
+      toast({
+        title: "Error",
+        description: "Por favor, introduce un valor válido",
+        variant: "destructive",
+      })
+      return
+    }
+
+    updateBaseSalary(newSalary)
+  }
+
   if (isLoading) {
     return (
       <div className="container mx-auto p-4">
@@ -150,7 +226,48 @@ export default function AdminNominas() {
   }
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto p-4 space-y-6">
+      {/* Configuración de Nómina Base */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Settings className="h-5 w-5 mr-2" />
+            Configuración de Nómina
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSalarySubmit}>
+            <div className="flex flex-col sm:flex-row gap-4 items-end">
+              <div className="space-y-2 flex-1">
+                <Label htmlFor="baseSalary">Nómina Base Mensual (€)</Label>
+                <Input
+                  type="number"
+                  id="baseSalary"
+                  name="baseSalary"
+                  defaultValue={baseSalary}
+                  step="0.01"
+                  min="0"
+                  placeholder="Ej: 1400.00"
+                />
+                <p className="text-sm text-muted-foreground">Importe fijo que se paga mensualmente a cada conductor</p>
+              </div>
+              <Button type="submit" disabled={isUpdatingConfig}>
+                {isUpdatingConfig ? "Actualizando..." : "Actualizar"}
+              </Button>
+            </div>
+          </form>
+          <div className="mt-4 p-3 bg-muted rounded-lg">
+            <p className="text-sm">
+              <strong>Nómina actual:</strong> {formatCurrency(baseSalary)} / mes
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              El efectivo adicional se calcula como: Comisión Total - Nómina Base
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Panel de Nóminas Existente */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Nóminas</CardTitle>
@@ -289,3 +406,4 @@ export default function AdminNominas() {
     </div>
   )
 }
+

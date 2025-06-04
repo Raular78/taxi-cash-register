@@ -1,16 +1,19 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { format, subDays } from "date-fns"
+import { useRouter } from "next/navigation"
+import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../../components/ui/card"
-import { Button } from "../../../components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs"
-import { ChevronLeft, Download, Edit, Plus } from "lucide-react"
-import type { DateRange } from "react-day-picker"
-import { SimpleDateRangePicker } from "../../components/ui/simple-date-range-picker"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { DateRangePicker } from "@/components/ui/date-range-picker"
+import { Skeleton } from "@/components/ui/skeleton"
+import { toast } from "@/components/ui/use-toast"
+import { Search, Plus, Eye, ArrowLeft, Clock, MapPin, Euro } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface DailyRecord {
   id: number
@@ -25,299 +28,446 @@ interface DailyRecord {
   totalAmount: number
   fuelExpense: number
   otherExpenses: number
-  otherExpenseNotes: string | null
   driverCommission: number
   netAmount: number
-  notes: string | null
-  shiftStart: string | null
-  shiftEnd: string | null
-  imageUrl: string | null
-  driverId: number
-  createdAt: string
-  updatedAt: string
-  driver: {
-    id: number
-    username: string
-    email: string
-  }
+  notes?: string
+  shiftStart?: string
+  shiftEnd?: string
+  imageUrl?: string
 }
 
-export default function DailyRecordsPage() {
+export default function ConductorRegistrosDiariosPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [dailyRecords, setDailyRecords] = useState<DailyRecord[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: subDays(new Date(), 30),
+  const [records, setRecords] = useState<DailyRecord[]>([])
+  const [loading, setLoading] = useState(true)
+  const [dateRange, setDateRange] = useState({
+    from: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
     to: new Date(),
   })
+  const [searchTerm, setSearchTerm] = useState("")
+  const [viewRecord, setViewRecord] = useState<DailyRecord | null>(null)
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
 
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login")
+    } else if (session?.user?.role !== "driver") {
+      router.push("/dashboard")
     }
-  }, [status, router])
+  }, [status, session, router])
 
   useEffect(() => {
-    if (status === "authenticated" && dateRange?.from && dateRange?.to) {
-      fetchDailyRecords()
+    if (session) {
+      fetchRecords()
     }
-  }, [status, dateRange])
+  }, [session, dateRange])
 
-  const fetchDailyRecords = async () => {
-    if (!dateRange?.from || !dateRange?.to) return
-
-    setIsLoading(true)
+  const fetchRecords = async () => {
+    setLoading(true)
     try {
-      const formattedStartDate = format(dateRange.from, "yyyy-MM-dd")
-      const formattedEndDate = format(dateRange.to, "yyyy-MM-dd")
+      const fromDate = format(dateRange.from, "yyyy-MM-dd")
+      const toDate = format(dateRange.to, "yyyy-MM-dd")
 
-      const response = await fetch(`/api/daily-records?startDate=${formattedStartDate}&endDate=${formattedEndDate}`)
+      const response = await fetch(`/api/records?from=${fromDate}&to=${toDate}`)
 
-      if (response.ok) {
-        const data = await response.json()
-        setDailyRecords(data)
-      } else {
-        console.error("Error al obtener registros diarios")
+      if (!response.ok) {
+        throw new Error("Error al obtener registros")
       }
+
+      const data = await response.json()
+      setRecords(data)
     } catch (error) {
       console.error("Error:", error)
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los registros",
+        variant: "destructive",
+      })
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
-  const calculateTotals = () => {
-    return dailyRecords.reduce(
-      (acc, record) => {
-        acc.totalKm += record.totalKm
-        acc.totalAmount += record.totalAmount
-        acc.cashAmount += record.cashAmount
-        acc.cardAmount += record.cardAmount
-        acc.invoiceAmount += record.invoiceAmount
-        acc.otherAmount += record.otherAmount
-        acc.fuelExpense += record.fuelExpense
-        acc.otherExpenses += record.otherExpenses
-        acc.driverCommission += record.driverCommission
-        acc.netAmount += record.netAmount
-        return acc
-      },
-      {
-        totalKm: 0,
-        totalAmount: 0,
-        cashAmount: 0,
-        cardAmount: 0,
-        invoiceAmount: 0,
-        otherAmount: 0,
-        fuelExpense: 0,
-        otherExpenses: 0,
-        driverCommission: 0,
-        netAmount: 0,
-      },
-    )
+  const viewRecordDetails = (record: DailyRecord) => {
+    setViewRecord(record)
+    setIsViewDialogOpen(true)
   }
 
-  const totals = calculateTotals()
-
-  const handleEditRecord = (id: number) => {
-    router.push(`/conductor/editar-registro/${id}`)
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("es-ES", {
+      style: "currency",
+      currency: "EUR",
+    }).format(amount)
   }
 
-  const handleExportToPDF = () => {
-    // Implementar exportación a PDF
-    alert("Exportación a PDF no implementada aún")
+  const filteredRecords = records.filter(
+    (record) =>
+      record.id.toString().includes(searchTerm) || format(new Date(record.date), "dd/MM/yyyy").includes(searchTerm),
+  )
+
+  const getTotalAmount = () => {
+    return filteredRecords.reduce((sum, record) => sum + record.totalAmount, 0)
   }
 
-  if (status === "loading" || isLoading) {
+  const getTotalKm = () => {
+    return filteredRecords.reduce((sum, record) => sum + record.totalKm, 0)
+  }
+
+  const getTotalCommission = () => {
+    return filteredRecords.reduce((sum, record) => sum + record.driverCommission, 0)
+  }
+
+  if (status === "loading") {
     return (
-      <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-4">Cargando...</h1>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
+          <p className="mt-4">Cargando...</p>
+        </div>
       </div>
     )
+  }
+
+  if (!session || session.user.role !== "driver") {
+    return null
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div className="flex items-center">
-          <Button variant="ghost" onClick={() => router.push("/conductor")} className="mr-2">
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Volver
-          </Button>
-          <h1 className="text-2xl font-bold">Registros Diarios</h1>
-        </div>
-
-        <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
-          <SimpleDateRangePicker dateRange={dateRange} onDateRangeChange={setDateRange} />
-
-          <Button onClick={() => router.push("/conductor/nuevo-registro")}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo Registro
-          </Button>
-        </div>
-      </div>
-
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Resumen del Período</CardTitle>
-          <CardDescription>
-            {dateRange?.from && dateRange?.to
-              ? `${format(dateRange.from, "dd/MM/yyyy", { locale: es })} - ${format(dateRange.to, "dd/MM/yyyy", {
-                  locale: es,
-                })}`
-              : "Selecciona un rango de fechas"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-500">Kilómetros Totales</div>
-              <div className="text-2xl font-bold">{totals.totalKm} km</div>
-            </div>
-
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-500">Ingresos Totales</div>
-              <div className="text-2xl font-bold">{totals.totalAmount.toFixed(2)}€</div>
-            </div>
-
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-500">Gastos Totales</div>
-              <div className="text-2xl font-bold">{(totals.fuelExpense + totals.otherExpenses).toFixed(2)}€</div>
-            </div>
-
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-500">Comisión Conductor</div>
-              <div className="text-2xl font-bold">{totals.driverCommission.toFixed(2)}€</div>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 py-6 space-y-6">
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" onClick={() => router.push("/conductor")} className="p-2">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <h1 className="text-2xl lg:text-3xl font-bold">Mis Registros Diarios</h1>
+              <p className="text-muted-foreground">Gestiona tus jornadas de trabajo</p>
             </div>
           </div>
-        </CardContent>
-        <CardFooter>
-          <Button variant="outline" className="w-full" onClick={handleExportToPDF}>
-            <Download className="mr-2 h-4 w-4" />
-            Exportar a PDF
+          <Button asChild className="w-full lg:w-auto">
+            <a href="/conductor/nuevo-registro">
+              <Plus className="h-4 w-4 mr-2" />
+              Nuevo Registro
+            </a>
           </Button>
-        </CardFooter>
-      </Card>
+        </div>
 
-      <Tabs defaultValue="tabla" className="mb-6">
-        <TabsList>
-          <TabsTrigger value="tabla">Vista de Tabla</TabsTrigger>
-          <TabsTrigger value="tarjetas">Vista de Tarjetas</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="tabla">
+        {/* Estadísticas */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Listado de Registros</CardTitle>
-              <CardDescription>{dailyRecords.length} registros encontrados</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Recaudado</CardTitle>
+              <Euro className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {dailyRecords.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-2">Fecha</th>
-                        <th className="text-right py-2">Km</th>
-                        <th className="text-right py-2">Efectivo</th>
-                        <th className="text-right py-2">Tarjeta</th>
-                        <th className="text-right py-2">Total</th>
-                        <th className="text-right py-2">Combustible</th>
-                        <th className="text-right py-2">Comisión</th>
-                        <th className="text-right py-2">Neto</th>
-                        <th className="text-center py-2">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dailyRecords.map((record) => (
-                        <tr key={record.id} className="border-b hover:bg-gray-50">
-                          <td className="py-2">{format(new Date(record.date), "dd/MM/yyyy")}</td>
-                          <td className="text-right py-2">{record.totalKm} km</td>
-                          <td className="text-right py-2">{record.cashAmount.toFixed(2)}€</td>
-                          <td className="text-right py-2">{record.cardAmount.toFixed(2)}€</td>
-                          <td className="text-right py-2">{record.totalAmount.toFixed(2)}€</td>
-                          <td className="text-right py-2">{record.fuelExpense.toFixed(2)}€</td>
-                          <td className="text-right py-2">{record.driverCommission.toFixed(2)}€</td>
-                          <td className="text-right py-2">{record.netAmount.toFixed(2)}€</td>
-                          <td className="text-center py-2">
-                            <div className="flex justify-center space-x-1">
-                              <Button variant="ghost" size="icon" onClick={() => handleEditRecord(record.id)}>
-                                <Edit className="h-4 w-4" />
-                                <span className="sr-only">Editar</span>
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">No hay registros para el período seleccionado</div>
-              )}
+              <div className="text-xl lg:text-2xl font-bold">
+                {loading ? <Skeleton className="h-6 w-24" /> : formatCurrency(getTotalAmount())}
+              </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="tarjetas">
-          {dailyRecords.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {dailyRecords.map((record) => (
-                <Card key={record.id}>
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">{format(new Date(record.date), "dd/MM/yyyy")}</CardTitle>
-                      <Button variant="ghost" size="icon" onClick={() => handleEditRecord(record.id)}>
-                        <Edit className="h-4 w-4" />
-                        <span className="sr-only">Editar</span>
-                      </Button>
-                    </div>
-                    <CardDescription>
-                      {record.totalKm} km • {record.shiftStart || "N/A"} - {record.shiftEnd || "N/A"}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <div className="text-gray-500">Efectivo</div>
-                        <div>{record.cashAmount.toFixed(2)}€</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500">Tarjeta</div>
-                        <div>{record.cardAmount.toFixed(2)}€</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500">Combustible</div>
-                        <div>{record.fuelExpense.toFixed(2)}€</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500">Otros gastos</div>
-                        <div>{record.otherExpenses.toFixed(2)}€</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500">Comisión</div>
-                        <div>{record.driverCommission.toFixed(2)}€</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500">Neto</div>
-                        <div className="font-bold">{record.netAmount.toFixed(2)}€</div>
-                      </div>
-                    </div>
-                    {record.notes && (
-                      <div className="mt-2 text-sm">
-                        <div className="text-gray-500">Notas</div>
-                        <div>{record.notes}</div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Kilómetros</CardTitle>
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl lg:text-2xl font-bold">
+                {loading ? <Skeleton className="h-6 w-24" /> : `${getTotalKm()} km`}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Mi Comisión</CardTitle>
+              <Euro className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl lg:text-2xl font-bold">
+                {loading ? <Skeleton className="h-6 w-24" /> : formatCurrency(getTotalCommission())}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filtros */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Filtros</CardTitle>
+            <CardDescription>Filtra tus registros por fecha</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por ID o fecha..."
+                  className="pl-8"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="lg:w-80">
+                <DateRangePicker dateRange={dateRange} onRangeChange={setDateRange} />
+              </div>
             </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500">No hay registros para el período seleccionado</div>
-          )}
-        </TabsContent>
-      </Tabs>
+          </CardContent>
+        </Card>
+
+        {/* Lista de registros */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Listado de Jornadas</CardTitle>
+            <CardDescription>
+              Mostrando jornadas del {format(dateRange.from, "dd/MM/yyyy", { locale: es })} al{" "}
+              {format(dateRange.to, "dd/MM/yyyy", { locale: es })}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-16 w-full" />
+                ))}
+              </div>
+            ) : filteredRecords.length > 0 ? (
+              <div className="space-y-4">
+                {/* Vista móvil */}
+                <div className="block lg:hidden space-y-3">
+                  {filteredRecords.map((record) => (
+                    <div key={record.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <div className="font-medium">
+                            {format(new Date(record.date), "dd/MM/yyyy", { locale: es })}
+                          </div>
+                          <div className="text-sm text-muted-foreground">ID: {record.id}</div>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => viewRecordDetails(record)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Total:</span>
+                          <div className="font-medium">{formatCurrency(record.totalAmount)}</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Km:</span>
+                          <div className="font-medium">{record.totalKm} km</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Comisión:</span>
+                          <div className="font-medium text-green-600">{formatCurrency(record.driverCommission)}</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Horario:</span>
+                          <div className="font-medium">
+                            {record.shiftStart && record.shiftEnd
+                              ? `${record.shiftStart}-${record.shiftEnd}`
+                              : "No registrado"}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Vista desktop */}
+                <div className="hidden lg:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>ID</TableHead>
+                        <TableHead>Fecha</TableHead>
+                        <TableHead>Horario</TableHead>
+                        <TableHead>Km</TableHead>
+                        <TableHead>Efectivo</TableHead>
+                        <TableHead>Tarjeta</TableHead>
+                        <TableHead>Total</TableHead>
+                        <TableHead>Gastos</TableHead>
+                        <TableHead>Comisión</TableHead>
+                        <TableHead>Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredRecords.map((record) => (
+                        <TableRow key={record.id}>
+                          <TableCell>{record.id}</TableCell>
+                          <TableCell>{format(new Date(record.date), "dd/MM/yyyy", { locale: es })}</TableCell>
+                          <TableCell>
+                            {record.shiftStart && record.shiftEnd ? (
+                              <div className="flex items-center text-sm">
+                                <Clock className="h-3 w-3 mr-1" />
+                                {record.shiftStart}-{record.shiftEnd}
+                              </div>
+                            ) : (
+                              "No registrado"
+                            )}
+                          </TableCell>
+                          <TableCell>{record.totalKm} km</TableCell>
+                          <TableCell>{formatCurrency(record.cashAmount)}</TableCell>
+                          <TableCell>{formatCurrency(record.cardAmount)}</TableCell>
+                          <TableCell className="font-medium">{formatCurrency(record.totalAmount)}</TableCell>
+                          <TableCell>{formatCurrency(record.fuelExpense + record.otherExpenses)}</TableCell>
+                          <TableCell className="font-medium text-green-600">
+                            {formatCurrency(record.driverCommission)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex space-x-2">
+                              <Button variant="ghost" size="sm" onClick={() => viewRecordDetails(record)}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">No hay registros en este período</div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Diálogo para ver detalles */}
+        <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Detalles de la Jornada</DialogTitle>
+              <DialogDescription>
+                {viewRecord && format(new Date(viewRecord.date), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
+              </DialogDescription>
+            </DialogHeader>
+
+            {viewRecord && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="font-medium mb-3">Información General</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Fecha:</span>
+                        <span>{format(new Date(viewRecord.date), "dd/MM/yyyy", { locale: es })}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Horario:</span>
+                        <span>
+                          {viewRecord.shiftStart && viewRecord.shiftEnd
+                            ? `${viewRecord.shiftStart} - ${viewRecord.shiftEnd}`
+                            : "No registrado"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Kilómetros:</span>
+                        <span>
+                          {viewRecord.startKm} - {viewRecord.endKm} ({viewRecord.totalKm} km)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="font-medium mb-3">Ingresos</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Efectivo:</span>
+                        <span>{formatCurrency(viewRecord.cashAmount)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Tarjeta:</span>
+                        <span>{formatCurrency(viewRecord.cardAmount)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Facturación:</span>
+                        <span>{formatCurrency(viewRecord.invoiceAmount)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Otros:</span>
+                        <span>{formatCurrency(viewRecord.otherAmount)}</span>
+                      </div>
+                      <div className="border-t pt-2">
+                        <div className="flex justify-between font-medium">
+                          <span>Total:</span>
+                          <span>{formatCurrency(viewRecord.totalAmount)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="font-medium mb-3">Gastos</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Combustible:</span>
+                        <span>{formatCurrency(viewRecord.fuelExpense)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Otros gastos:</span>
+                        <span>{formatCurrency(viewRecord.otherExpenses)}</span>
+                      </div>
+                      <div className="border-t pt-2">
+                        <div className="flex justify-between font-medium">
+                          <span>Total gastos:</span>
+                          <span>{formatCurrency(viewRecord.fuelExpense + viewRecord.otherExpenses)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="font-medium mb-3">Comisión</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Tu comisión (35%):</span>
+                        <span className="font-medium text-green-600">
+                          {formatCurrency(viewRecord.driverCommission)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Ganancia neta:</span>
+                        <span className="font-medium text-green-600">
+                          {formatCurrency(
+                            viewRecord.driverCommission - viewRecord.fuelExpense - viewRecord.otherExpenses,
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {viewRecord.notes && (
+                  <div>
+                    <h3 className="font-medium mb-2">Notas</h3>
+                    <p className="text-sm text-muted-foreground">{viewRecord.notes}</p>
+                  </div>
+                )}
+
+                {viewRecord.imageUrl && (
+                  <div>
+                    <h3 className="font-medium mb-2">Imagen de la Hoja</h3>
+                    <div className="border rounded-md overflow-hidden">
+                      <img
+                        src={viewRecord.imageUrl || "/placeholder.svg"}
+                        alt="Hoja de registro"
+                        className="w-full h-auto"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   )
 }
