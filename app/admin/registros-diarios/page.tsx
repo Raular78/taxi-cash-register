@@ -22,7 +22,7 @@ import {
 import { DateRangePicker } from "../../../components/ui/date-range-picker"
 import { Skeleton } from "../../../components/ui/skeleton"
 import { toast } from "../../../components/ui/use-toast"
-import { UploadIcon as FileUpload, FileText, Eye, Download, Search, Plus, Trash2, Edit } from "lucide-react"
+import { UploadIcon as FileUpload, FileText, Eye, Download, Search, Plus, Trash2, Edit, ImageIcon } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select"
 import BackToAdminButton from "../../../components/BackToAdminButton"
 import { useRouter } from "next/navigation"
@@ -558,6 +558,7 @@ export default function AdminDailyRecordsPage() {
                     <TableHead>Gastos</TableHead>
                     <TableHead>Comisión</TableHead>
                     <TableHead>Neto</TableHead>
+                    <TableHead>Imagen</TableHead>
                     <TableHead>Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -575,6 +576,20 @@ export default function AdminDailyRecordsPage() {
                       <TableCell>{formatCurrency(record.fuelExpense + record.otherExpenses)}</TableCell>
                       <TableCell>{formatCurrency(record.driverCommission)}</TableCell>
                       <TableCell className="font-medium">{formatCurrency(record.netAmount)}</TableCell>
+                      <TableCell>
+                        {record.imageUrl ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(record.imageUrl, "_blank")}
+                            title="Ver imagen"
+                          >
+                            <ImageIcon className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">Sin imagen</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <div className="flex space-x-2">
                           <Button variant="ghost" size="sm" onClick={() => viewRecordDetails(record.id)}>
@@ -948,12 +963,18 @@ export default function AdminDailyRecordsPage() {
               {viewRecord.imageUrl && (
                 <div>
                   <h3 className="font-medium mb-2">Imagen de la Hoja</h3>
-                  <div className="border rounded-md overflow-hidden">
+                  <div
+                    className="border rounded-md overflow-hidden cursor-pointer"
+                    onClick={() => window.open(viewRecord.imageUrl, "_blank")}
+                  >
                     <img
                       src={viewRecord.imageUrl || "/placeholder.svg"}
                       alt="Hoja de registro"
-                      className="w-full h-auto"
+                      className="w-full h-auto max-h-[200px] object-contain"
                     />
+                    <div className="bg-black/5 p-2 text-center text-sm text-muted-foreground">
+                      Haz clic para abrir en nueva pestaña
+                    </div>
                   </div>
                 </div>
               )}
@@ -994,4 +1015,3 @@ export default function AdminDailyRecordsPage() {
     </div>
   )
 }
-

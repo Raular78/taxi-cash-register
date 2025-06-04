@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DateRangePicker } from "@/components/ui/date-range-picker"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/components/ui/use-toast"
-import { Search, Plus, Eye, ArrowLeft, Clock, MapPin, Euro } from "lucide-react"
+import { Search, Plus, Eye, ArrowLeft, Clock, MapPin, Euro, ImageIcon } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface DailyRecord {
@@ -48,6 +48,7 @@ export default function ConductorRegistrosDiariosPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [viewRecord, setViewRecord] = useState<DailyRecord | null>(null)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
+  const [isImageDialogOpen, setIsImageDialogOpen] = useState(false)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -92,6 +93,12 @@ export default function ConductorRegistrosDiariosPage() {
   const viewRecordDetails = (record: DailyRecord) => {
     setViewRecord(record)
     setIsViewDialogOpen(true)
+  }
+
+  const viewFullImage = () => {
+    if (viewRecord?.imageUrl) {
+      setIsImageDialogOpen(true)
+    }
   }
 
   const formatCurrency = (amount: number) => {
@@ -247,9 +254,24 @@ export default function ConductorRegistrosDiariosPage() {
                           </div>
                           <div className="text-sm text-muted-foreground">ID: {record.id}</div>
                         </div>
-                        <Button variant="ghost" size="sm" onClick={() => viewRecordDetails(record)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center">
+                          {record.imageUrl && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="mr-1"
+                              onClick={() => {
+                                setViewRecord(record)
+                                setIsImageDialogOpen(true)
+                              }}
+                            >
+                              <ImageIcon className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="sm" onClick={() => viewRecordDetails(record)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div>
@@ -291,6 +313,7 @@ export default function ConductorRegistrosDiariosPage() {
                         <TableHead>Total</TableHead>
                         <TableHead>Gastos</TableHead>
                         <TableHead>Comisión</TableHead>
+                        <TableHead>Imagen</TableHead>
                         <TableHead>Acciones</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -318,7 +341,35 @@ export default function ConductorRegistrosDiariosPage() {
                             {formatCurrency(record.driverCommission)}
                           </TableCell>
                           <TableCell>
+                            {record.imageUrl ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setViewRecord(record)
+                                  setIsImageDialogOpen(true)
+                                }}
+                              >
+                                <ImageIcon className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">Sin imagen</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
                             <div className="flex space-x-2">
+                              {record.imageUrl && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setViewRecord(record)
+                                    setIsImageDialogOpen(true)
+                                  }}
+                                >
+                                  <ImageIcon className="h-4 w-4" />
+                                </Button>
+                              )}
                               <Button variant="ghost" size="sm" onClick={() => viewRecordDetails(record)}>
                                 <Eye className="h-4 w-4" />
                               </Button>
@@ -454,15 +505,39 @@ export default function ConductorRegistrosDiariosPage() {
                 {viewRecord.imageUrl && (
                   <div>
                     <h3 className="font-medium mb-2">Imagen de la Hoja</h3>
-                    <div className="border rounded-md overflow-hidden">
+                    <div className="border rounded-md overflow-hidden cursor-pointer" onClick={viewFullImage}>
                       <img
                         src={viewRecord.imageUrl || "/placeholder.svg"}
                         alt="Hoja de registro"
-                        className="w-full h-auto"
+                        className="w-full h-auto max-h-[200px] object-contain"
                       />
+                      <div className="bg-black/5 p-2 text-center text-sm text-muted-foreground">
+                        Haz clic para ampliar
+                      </div>
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Diálogo para ver imagen completa */}
+        <Dialog open={isImageDialogOpen} onOpenChange={setIsImageDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+            <DialogHeader>
+              <DialogTitle>Imagen de la Hoja</DialogTitle>
+              <DialogDescription>
+                {viewRecord && format(new Date(viewRecord.date), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
+              </DialogDescription>
+            </DialogHeader>
+            {viewRecord?.imageUrl && (
+              <div className="flex justify-center">
+                <img
+                  src={viewRecord.imageUrl || "/placeholder.svg"}
+                  alt="Hoja de registro"
+                  className="max-w-full max-h-[70vh] object-contain"
+                />
               </div>
             )}
           </DialogContent>

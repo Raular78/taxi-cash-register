@@ -77,6 +77,7 @@ export default function ConductorDashboard() {
   })
   const [weeklyData, setWeeklyData] = useState<WeeklyData[]>([])
   const [activeTab, setActiveTab] = useState<"resumen" | "detalles">("resumen")
+  const [showPayrollDetails, setShowPayrollDetails] = useState(false)
 
   // Presets de fechas
   const datePresets = [
@@ -586,40 +587,110 @@ export default function ConductorDashboard() {
                     </div>
 
                     <div>
-                      <h3 className="font-semibold mb-3">Nómina y Comisiones</h3>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span>Comisión (35%):</span>
-                          <span className="font-medium">{formatCurrency(totals.totalCommission)}</span>
-                        </div>
-                        <div className="pl-4 space-y-1 text-sm border-l-2 border-muted">
+                      <div>
+                        <h3 className="font-semibold mb-3">Nómina y Comisiones</h3>
+                        <div className="space-y-2">
                           <div className="flex justify-between">
-                            <span>Sujeto a Nómina:</span>
-                            <span className="font-medium">{formatCurrency(nominaValue)}</span>
+                            <span>Comisión (35%):</span>
+                            <span className="font-medium">{formatCurrency(totals.totalCommission)}</span>
                           </div>
-                          <div className="flex justify-between">
-                            <span>Efectivo:</span>
-                            <span className="font-medium text-green-600">{formatCurrency(cashBonus)}</span>
+                          <div className="pl-4 space-y-1 text-sm border-l-2 border-muted">
+                            <div className="flex justify-between">
+                              <span>Sujeto a Nómina:</span>
+                              <span className="font-medium">{formatCurrency(nominaValue)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Efectivo:</span>
+                              <span className="font-medium text-green-600">{formatCurrency(cashBonus)}</span>
+                            </div>
                           </div>
-                        </div>
-                        {totals.totalCommission < nominaValue && (
-                          <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded">
-                            La comisión es menor que la nómina base. Diferencia:{" "}
-                            {formatCurrency(nominaValue - totals.totalCommission)}
-                          </div>
-                        )}
 
-                        {/* Botón para descargar nómina si existe */}
-                        {payrollData?.found && payrollData.payroll?.pdfUrl && (
-                          <div className="mt-3">
-                            <Button variant="outline" size="sm" className="w-full" asChild>
-                              <a href={payrollData.payroll.pdfUrl} target="_blank" rel="noopener noreferrer">
-                                <Download className="h-4 w-4 mr-2" />
-                                Descargar Nómina
-                              </a>
-                            </Button>
-                          </div>
-                        )}
+                          {/* Información de nómina */}
+                          {payrollData?.found && (
+                            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="font-medium text-blue-800">Nómina Disponible</span>
+                                <span className="text-sm text-blue-600">
+                                  Estado: {payrollData.payroll?.status === "paid" ? "Pagada" : "Pendiente"}
+                                </span>
+                              </div>
+
+                              {payrollData.payroll?.paymentDate && (
+                                <div className="text-sm text-blue-600 mb-2">
+                                  Fecha de pago:{" "}
+                                  {format(new Date(payrollData.payroll.paymentDate), "dd/MM/yyyy", { locale: es })}
+                                </div>
+                              )}
+
+                              <div className="flex flex-wrap gap-2">
+                                {payrollData.payroll?.pdfUrl && (
+                                  <Button variant="outline" size="sm" asChild>
+                                    <a href={payrollData.payroll.pdfUrl} target="_blank" rel="noopener noreferrer">
+                                      <Download className="h-4 w-4 mr-2" />
+                                      Descargar PDF
+                                    </a>
+                                  </Button>
+                                )}
+
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setShowPayrollDetails(!showPayrollDetails)}
+                                >
+                                  {showPayrollDetails ? "Ocultar" : "Ver"} Detalles
+                                </Button>
+                              </div>
+
+                              {showPayrollDetails && payrollData.payroll && (
+                                <div className="mt-3 pt-3 border-t border-blue-200 text-sm">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <span className="text-blue-600">Salario base:</span>
+                                      <div className="font-medium">
+                                        {formatCurrency(payrollData.payroll.baseSalary)}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <span className="text-blue-600">Comisiones:</span>
+                                      <div className="font-medium">
+                                        {formatCurrency(payrollData.payroll.commissions)}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <span className="text-blue-600">Bonificaciones:</span>
+                                      <div className="font-medium">{formatCurrency(payrollData.payroll.bonuses)}</div>
+                                    </div>
+                                    <div>
+                                      <span className="text-blue-600">Deducciones:</span>
+                                      <div className="font-medium">
+                                        {formatCurrency(payrollData.payroll.deductions)}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <span className="text-blue-600">Retención fiscal:</span>
+                                      <div className="font-medium">
+                                        {formatCurrency(payrollData.payroll.taxWithholding)}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <span className="text-blue-600">Importe neto:</span>
+                                      <div className="font-medium text-green-600">
+                                        {formatCurrency(payrollData.payroll.netAmount)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {totals.totalCommission < nominaValue && (
+                            <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded">
+                              La comisión es menor que la nómina base. Diferencia:{" "}
+                              {formatCurrency(nominaValue - totals.totalCommission)}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -718,4 +789,3 @@ export default function ConductorDashboard() {
     </div>
   )
 }
-
