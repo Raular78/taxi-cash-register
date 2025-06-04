@@ -108,7 +108,44 @@ export async function GET(request: NextRequest) {
       })
 
       console.log(`Gastos encontrados en la base de datos: ${expenses.length}`)
-      return NextResponse.json(expenses)
+
+      // Intentar obtener también gastos de combustible si existen
+      let fuelExpenses = []
+      try {
+        fuelExpenses = await prisma.fuelExpense.findMany({
+          where: whereClause.date ? { date: whereClause.date } : {},
+          include: {
+            driver: {
+              select: {
+                id: true,
+                username: true,
+              },
+            },
+          },
+        })
+
+        console.log(`Gastos de combustible encontrados: ${fuelExpenses.length}`)
+      } catch (fuelError) {
+        console.log("No se pudieron obtener gastos de combustible:", fuelError)
+      }
+
+      // Combinar todos los gastos
+      const allExpenses = [
+        ...expenses,
+        ...fuelExpenses.map((expense) => ({
+          id: `fuel-${expense.id}`,
+          date: expense.date,
+          category: "Combustible",
+          description: `Combustible - ${expense.liters}L`,
+          amount: expense.amount,
+          status: "approved",
+          isRecurring: false,
+          driver: expense.driver,
+          type: "fuel",
+        })),
+      ]
+
+      return NextResponse.json(allExpenses)
     } catch (dbError) {
       console.error("Error al consultar la base de datos:", dbError)
 

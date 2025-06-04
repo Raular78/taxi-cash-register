@@ -411,29 +411,30 @@ export default function AdminDashboard() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              
+              <div>
                 <CardTitle>Registros Recientes</CardTitle>
                 <CardDescription>Últimos servicios registrados en el sistema</CardDescription>
-                <div className="flex space-x-2">
-  <Button asChild>
-    <Link href="/admin/registros-diarios">
-      <FileText className="h-4 w-4 mr-2" />
-      Ver todos los registros
-    </Link>
-  </Button>
-  <Button asChild>
-    <Link href="/admin/nuevo-registro">
-      <Plus className="h-4 w-4 mr-2" />
-      Nuevo Registro
-    </Link>
-  </Button>
-  <Button asChild>
-    <Link href="/admin/importar-registros">
-      <FileUp className="h-4 w-4 mr-2" />
-      Importar Registros
-    </Link>
-  </Button>
-</div>
+              </div>
+              <div className="flex space-x-2">
+                <Button asChild>
+                  <Link href="/admin/registros-diarios">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Ver todos los registros
+                  </Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/admin/nuevo-registro">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nuevo Registro
+                  </Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/admin/importar-registros">
+                    <FileUp className="h-4 w-4 mr-2" />
+                    Importar Registros
+                  </Link>
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {dailyRecords.length > 0 ? (

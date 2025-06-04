@@ -1,80 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { authOptions } from "../auth/options"
-import prisma from "../../lib/db"
-import { parseISO, startOfDay, endOfDay } from "date-fns"
+import prisma from "@/app/lib/db"
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
-export async function GET(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions)
-
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
-
-    // Obtener parámetros de consulta
-    const searchParams = request.nextUrl.searchParams
-    const fromDate = searchParams.get("from")
-    const toDate = searchParams.get("to")
-    const driverIdParam = searchParams.get("driverId")
-
-    // Construir cláusula where
-    const whereClause: any = {}
-
-    // Filtrar por rango de fechas si se proporcionan
-    if (fromDate && toDate) {
-      whereClause.date = {
-        gte: startOfDay(parseISO(fromDate)),
-        lte: endOfDay(parseISO(toDate)),
-      }
-    }
-
-    // Si el usuario es conductor, mostrar solo sus registros
-    // Si es admin y se especifica un driverId, filtrar por ese conductor
-    if (session.user.role === "driver") {
-      // Buscar el ID del usuario en la base de datos
-      const user = await prisma.user.findUnique({
-        where: { email: session.user.email as string },
-      })
-
-      if (!user) {
-        return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 })
-      }
-
-      whereClause.driverId = user.id
-    } else if (driverIdParam && driverIdParam !== "all") {
-      // Convertir a número para evitar problemas con Prisma
-      whereClause.driverId = Number.parseInt(driverIdParam, 10)
-    }
-
-    // Log para depuración
-    console.log("Cláusula where:", whereClause)
-
-    // Obtener registros
-    const dailyRecords = await prisma.dailyRecord.findMany({
-      where: whereClause,
-      orderBy: {
-        date: "desc",
-      },
-      include: {
-        driver: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-          },
-        },
-      },
-    })
-
-    return NextResponse.json(dailyRecords)
-  } catch (error) {
-    console.error("Error al obtener registros diarios:", error)
-    return NextResponse.json({ error: "Error al obtener registros diarios" }, { status: 500 })
-  }
-}
-
-export async function POST(request: NextRequest) {
+export async function POST(request) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -84,39 +13,107 @@ export async function POST(request: NextRequest) {
 
     const data = await request.json()
 
-    // Validar datos mínimos requeridos
-    if (!data.date || !data.driverId) {
-      return NextResponse.json({ error: "Faltan datos requeridos" }, { status: 400 })
+    // Asegurarse de que el driverId sea el del usuario autenticado si es conductor
+    if (session.user.role === "driver") {
+      data.driverId = Number.parseInt(session.user.id)
     }
 
-    // Crear registro
-    const dailyRecord = await prisma.dailyRecord.create({
+    // Guardar en dailyRecord en lugar de record
+    const record = await prisma.dailyRecord.create({
       data: {
         date: new Date(data.date),
-        driverId: data.driverId,
         startKm: data.startKm || 0,
         endKm: data.endKm || 0,
         totalKm: data.totalKm || 0,
-        cashAmount: data.cashAmount || 0,
-        cardAmount: data.cardAmount || 0,
-        invoiceAmount: data.invoiceAmount || 0,
-        otherAmount: data.otherAmount || 0,
-        totalAmount: data.totalAmount || 0,
-        fuelExpense: data.fuelExpense || 0,
-        otherExpenses: data.otherExpenses || 0,
-        otherExpenseNotes: data.otherExpenseNotes,
-        driverCommission: data.driverCommission || 0,
-        netAmount: data.netAmount || 0,
-        notes: data.notes,
-        shiftStart: data.shiftStart,
-        shiftEnd: data.shiftEnd,
-        imageUrl: data.imageUrl,
+        cashAmount: Number.parseFloat(data.cashAmount) || 0,
+        cardAmount: Number.parseFloat(data.cardAmount) || 0,
+        invoiceAmount: Number.parseFloat(data.invoiceAmount) || 0,
+        otherAmount: Number.parseFloat(data.otherAmount) || 0,
+        totalAmount: Number.parseFloat(data.totalAmount) || 0,
+        fuelExpense: Number.parseFloat(data.fuelExpense) || 0,
+        otherExpenses: Number.parseFloat(data.otherExpenses) || 0,
+        otherExpenseNotes: data.otherExpenseNotes || null,
+        driverCommission: Number.parseFloat(data.driverCommission) || 0,
+        netAmount: Number.parseFloat(data.netAmount) || 0,
+        notes: data.notes || null,
+        shiftStart: data.shiftStart || null,
+        shiftEnd: data.shiftEnd || null,
+        imageUrl: data.imageUrl || null,
+        driverId: data.driverId,
       },
     })
 
-    return NextResponse.json(dailyRecord)
+    return NextResponse.json(record)
   } catch (error) {
-    console.error("Error al crear registro diario:", error)
-    return NextResponse.json({ error: "Error al crear registro diario" }, { status: 500 })
+    console.error("Error al crear registro:", error)
+    return NextResponse.json({ error: "Error al crear el registro" }, { status: 500 })
+  }
+}
+
+export async function GET(request) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const from = searchParams.get("from")
+    const to = searchParams.get("to")
+    const driverId = searchParams.get("driverId")
+
+    const whereClause: any = {}
+
+    // Si es conductor, solo puede ver sus propios registros
+    if (session.user.role === "driver") {
+      whereClause.driverId = Number.parseInt(session.user.id)
+    } else if (session.user.role === "admin" && driverId && driverId !== "all") {
+      whereClause.driverId = Number.parseInt(driverId)
+    }
+
+    // Filtro de fechas
+    if (from && to) {
+      whereClause.date = {
+        gte: new Date(from),
+        lte: new Date(to),
+      }
+    }
+
+    // Consultar dailyRecord en lugar de record
+    const records = await prisma.dailyRecord.findMany({
+      where: whereClause,
+      orderBy: {
+        date: "desc",
+      },
+      include: {
+        driver: {
+          select: {
+            id: true,
+            username: true,
+          },
+        },
+      },
+    })
+
+    // Mapear los datos de dailyRecord a formato Record para compatibilidad
+    const mappedRecords = records.map((record) => ({
+      id: record.id,
+      date: record.date,
+      origin: "Servicio diario", // Valor por defecto
+      destination: "Múltiples destinos", // Valor por defecto
+      distance: record.totalKm,
+      fare: record.totalAmount,
+      tip: 0, // No hay propina en dailyRecord
+      totalAmount: record.totalAmount,
+      paymentMethod: "mixed", // Método mixto
+      driverId: record.driverId,
+      driver: record.driver,
+    }))
+
+    return NextResponse.json(mappedRecords)
+  } catch (error) {
+    console.error("Error al obtener registros:", error)
+    return NextResponse.json({ error: "Error al obtener registros" }, { status: 500 })
   }
 }
