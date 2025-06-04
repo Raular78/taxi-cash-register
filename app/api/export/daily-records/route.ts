@@ -1,12 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { authOptions } from "../../auth/[...nextauth]/options"
-import prisma from "../../../lib/db"
-import * as XLSX from "xlsx"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
+import prisma from "@/app/lib/db"
+import { authOptions } from "@/app/api/auth/options"
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -18,27 +15,30 @@ export async function GET(request: NextRequest) {
     const from = searchParams.get("from")
     const to = searchParams.get("to")
     const driverId = searchParams.get("driverId")
+    const format = searchParams.get("format") || "csv"
 
     const whereClause: any = {}
 
-    // Filtro por fecha
-    if (from && to) {
-      whereClause.date = {
-        gte: new Date(`${from}T00:00:00Z`),
-        lte: new Date(`${to}T23:59:59Z`),
-      }
+    // Si es conductor, solo puede ver sus propios registros
+    if (session.user.role === "driver") {
+      whereClause.driverId = Number.parseInt(session.user.id)
+    } else if (session.user.role === "admin" && driverId && driverId !== "all") {
+      whereClause.driverId = Number.parseInt(driverId)
     }
 
-    // Filtro por conductor
-    if (driverId && driverId !== "all") {
-      whereClause.driverId = Number.parseInt(driverId)
-    } else if (session.user.role === "driver") {
-      // Si es conductor, solo ve sus propios registros
-      whereClause.driverId = Number.parseInt(session.user.id)
+    // Filtro de fechas
+    if (from && to) {
+      whereClause.date = {
+        gte: new Date(from),
+        lte: new Date(to),
+      }
     }
 
     const records = await prisma.dailyRecord.findMany({
       where: whereClause,
+      orderBy: {
+        date: "desc",
+      },
       include: {
         driver: {
           select: {
@@ -47,77 +47,69 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      orderBy: {
-        date: "desc",
-      },
     })
 
-    // Preparar datos para Excel
-    const data = records.map((record) => ({
-      ID: record.id,
-      Fecha: format(new Date(record.date), "dd/MM/yyyy", { locale: es }),
-      Conductor: record.driver?.username || "N/A",
-      "Km Inicio": record.startKm,
-      "Km Fin": record.endKm,
-      "Total Km": record.totalKm,
-      "Hora Inicio": record.shiftStart || "",
-      "Hora Fin": record.shiftEnd || "",
-      Efectivo: record.cashAmount.toFixed(2),
-      Tarjeta: record.cardAmount.toFixed(2),
-      Facturación: record.invoiceAmount.toFixed(2),
-      "Otros Ingresos": record.otherAmount.toFixed(2),
-      "Total Ingresos": record.totalAmount.toFixed(2),
-      Gasolina: record.fuelExpense.toFixed(2),
-      "Otros Gastos": record.otherExpenses.toFixed(2),
-      "Concepto Otros Gastos": record.otherExpenseNotes || "",
-      "Comisión Conductor": record.driverCommission.toFixed(2),
-      "Neto Empresa": record.netAmount.toFixed(2),
-      Notas: record.notes || "",
-    }))
+    if (format === "json") {
+      return NextResponse.json(records)
+    }
 
-    // Crear libro de Excel
-    const worksheet = XLSX.utils.json_to_sheet(data)
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Registros Diarios")
-
-    // Ajustar anchos de columna
-    const colWidths = [
-      { wch: 5 }, // ID
-      { wch: 12 }, // Fecha
-      { wch: 15 }, // Conductor
-      { wch: 10 }, // Km Inicio
-      { wch: 10 }, // Km Fin
-      { wch: 10 }, // Total Km
-      { wch: 12 }, // Hora Inicio
-      { wch: 12 }, // Hora Fin
-      { wch: 12 }, // Efectivo
-      { wch: 12 }, // Tarjeta
-      { wch: 12 }, // Facturación
-      { wch: 15 }, // Otros Ingresos
-      { wch: 15 }, // Total Ingresos
-      { wch: 12 }, // Gasolina
-      { wch: 12 }, // Otros Gastos
-      { wch: 25 }, // Concepto Otros Gastos
-      { wch: 18 }, // Comisión Conductor
-      { wch: 15 }, // Neto Empresa
-      { wch: 30 }, // Notas
+    // Generar CSV
+    const csvHeaders = [
+      "ID",
+      "Fecha",
+      "Conductor",
+      "Hora Inicio",
+      "Hora Fin",
+      "Km Inicio",
+      "Km Fin",
+      "Total Km",
+      "Efectivo",
+      "Tarjeta",
+      "Facturación",
+      "Otros Ingresos",
+      "Total Ingresos",
+      "Gastos Combustible",
+      "Otros Gastos",
+      "Total Gastos",
+      "Comisión Conductor",
+      "Neto Empresa",
+      "Notas",
     ]
-    worksheet["!cols"] = colWidths
 
-    // Generar archivo
-    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "buffer" })
+    const csvRows = records.map((record) => [
+      record.id,
+      new Date(record.date).toLocaleDateString("es-ES"),
+      record.driver?.username || "N/A",
+      record.shiftStart || "",
+      record.shiftEnd || "",
+      record.startKm,
+      record.endKm,
+      record.totalKm,
+      record.cashAmount.toFixed(2),
+      record.cardAmount.toFixed(2),
+      record.invoiceAmount.toFixed(2),
+      record.otherAmount.toFixed(2),
+      record.totalAmount.toFixed(2),
+      record.fuelExpense.toFixed(2),
+      record.otherExpenses.toFixed(2),
+      (record.fuelExpense + record.otherExpenses).toFixed(2),
+      record.driverCommission.toFixed(2),
+      record.netAmount.toFixed(2),
+      record.notes || "",
+    ])
 
-    // Configurar respuesta
-    const fileName = `registros_diarios_${from}_a_${to}.xlsx`
+    const csvContent = [csvHeaders, ...csvRows].map((row) => row.map((field) => `"${field}"`).join(",")).join("\n")
 
-    return new NextResponse(excelBuffer, {
+    const fileName = `registros_diarios_${from}_${to}.csv`
+
+    return new NextResponse(csvContent, {
       headers: {
-        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Type": "text/csv; charset=utf-8",
         "Content-Disposition": `attachment; filename="${fileName}"`,
       },
     })
   } catch (error) {
-    console.error("Error al exportar registros diarios:", error)
-    return NextResponse.json({ error: "Error al exportar registros diarios" }, { status: 500 })
+    console.error("Error al exportar registros:", error)
+    return NextResponse.json({ error: "Error al exportar registros" }, { status: 500 })
   }
 }

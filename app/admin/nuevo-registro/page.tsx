@@ -29,15 +29,15 @@ export default function NuevoRegistroPage() {
   const [newRecord, setNewRecord] = useState({
     date: format(new Date(), "yyyy-MM-dd"),
     driverId: "",
-    startKm: "",
-    endKm: "",
-    totalAmount: "", // Este es ahora un campo de entrada (total recaudado)
-    cashAmount: "", // Este será un valor calculado
-    cardAmount: "",
-    invoiceAmount: "",
-    otherAmount: "",
-    fuelExpense: "",
-    otherExpenses: "",
+    startKm: "", // Cambiar de "" a mantener como ""
+    endKm: "", // Cambiar de "" a mantener como ""
+    totalAmount: "", // Mantener como ""
+    cashAmount: "", // Mantener como ""
+    cardAmount: "", // Mantener como ""
+    invoiceAmount: "", // Mantener como ""
+    otherAmount: "", // Mantener como ""
+    fuelExpense: "", // Mantener como ""
+    otherExpenses: "", // Mantener como ""
     otherExpenseNotes: "",
     shiftStart: "",
     shiftEnd: "",
@@ -313,6 +313,7 @@ export default function NuevoRegistroPage() {
                   value={newRecord.startKm}
                   onChange={handleInputChange}
                   required
+                  placeholder="0.00"
                 />
               </div>
 
@@ -325,6 +326,7 @@ export default function NuevoRegistroPage() {
                   value={newRecord.endKm}
                   onChange={handleInputChange}
                   required
+                  placeholder="0.00"
                 />
               </div>
             </div>
@@ -343,6 +345,7 @@ export default function NuevoRegistroPage() {
                       value={newRecord.totalAmount}
                       onChange={handleInputChange}
                       required
+                      placeholder="0.00"
                     />
                   </div>
                   <div className="space-y-2">
@@ -354,6 +357,7 @@ export default function NuevoRegistroPage() {
                       step="0.01"
                       value={newRecord.cardAmount}
                       onChange={handleInputChange}
+                      placeholder="0.00"
                     />
                   </div>
 
@@ -366,6 +370,7 @@ export default function NuevoRegistroPage() {
                       step="0.01"
                       value={newRecord.invoiceAmount}
                       onChange={handleInputChange}
+                      placeholder="0.00"
                     />
                   </div>
 
@@ -378,6 +383,7 @@ export default function NuevoRegistroPage() {
                       step="0.01"
                       value={newRecord.otherAmount}
                       onChange={handleInputChange}
+                      placeholder="0.00"
                     />
                   </div>
                 </div>
@@ -395,6 +401,7 @@ export default function NuevoRegistroPage() {
                       step="0.01"
                       value={newRecord.fuelExpense}
                       onChange={handleInputChange}
+                      placeholder="0.00"
                     />
                   </div>
 
@@ -407,6 +414,7 @@ export default function NuevoRegistroPage() {
                       step="0.01"
                       value={newRecord.otherExpenses}
                       onChange={handleInputChange}
+                      placeholder="0.00"
                     />
                   </div>
 

@@ -32,20 +32,19 @@ export default function NuevoRegistroPage() {
   // y cashAmount como campo calculado
   const [formData, setFormData] = useState({
     date: new Date(),
-    startKm: 0,
-    endKm: 0,
-    totalAmount: 0, // Total recaudado (campo de entrada)
-    cashAmount: 0, // Efectivo (campo calculado)
-    cardAmount: 0,
-    invoiceAmount: 0,
-    otherAmount: 0,
-    fuelExpense: 0,
-    otherExpenses: 0,
+    startKm: "", // Cambiar de 0 a ""
+    endKm: "", // Cambiar de 0 a ""
+    totalAmount: "", // Cambiar de 0 a ""
+    cashAmount: "", // Cambiar de 0 a ""
+    cardAmount: "", // Cambiar de 0 a ""
+    invoiceAmount: "", // Cambiar de 0 a ""
+    otherAmount: "", // Cambiar de 0 a ""
+    fuelExpense: "", // Cambiar de 0 a ""
+    otherExpenses: "", // Cambiar de 0 a ""
     otherExpenseNotes: "",
     notes: "",
     shiftStart: "",
     shiftEnd: "",
-    // Campos para jornada partida
     shiftBreakStart: "",
     shiftBreakEnd: "",
     imageUrl: "",
@@ -65,7 +64,7 @@ export default function NuevoRegistroPage() {
       [
         "startKm",
         "endKm",
-        "totalAmount", // Cambiado de cashAmount a totalAmount
+        "totalAmount",
         "cardAmount",
         "invoiceAmount",
         "otherAmount",
@@ -75,7 +74,7 @@ export default function NuevoRegistroPage() {
     ) {
       setFormData({
         ...formData,
-        [name]: value === "" ? 0 : Number.parseFloat(value),
+        [name]: value, // Mantener como string para permitir edición
       })
     } else {
       setFormData({
@@ -135,27 +134,21 @@ export default function NuevoRegistroPage() {
 
   // Modificar la función calculateTotals para implementar la nueva lógica
   const calculateTotals = () => {
-    const totalKm = formData.endKm - formData.startKm
+    const startKm = Number.parseFloat(formData.startKm) || 0
+    const endKm = Number.parseFloat(formData.endKm) || 0
+    const totalKm = endKm - startKm
 
-    // El total recaudado es un valor de entrada
-    const totalAmount = formData.totalAmount
-
-    // Calcular la comisión del conductor (35% del total recaudado)
+    const totalAmount = Number.parseFloat(formData.totalAmount) || 0
     const driverCommission = totalAmount * 0.35
 
-    // Calcular los gastos
-    const totalExpenses = formData.fuelExpense + formData.otherExpenses
+    const cardAmount = Number.parseFloat(formData.cardAmount) || 0
+    const invoiceAmount = Number.parseFloat(formData.invoiceAmount) || 0
+    const otherAmount = Number.parseFloat(formData.otherAmount) || 0
+    const fuelExpense = Number.parseFloat(formData.fuelExpense) || 0
+    const otherExpenses = Number.parseFloat(formData.otherExpenses) || 0
 
-    // Calcular el efectivo como el total menos todos los demás conceptos
-    const cashAmount =
-      totalAmount -
-      formData.cardAmount -
-      formData.invoiceAmount -
-      formData.otherAmount -
-      totalExpenses -
-      driverCommission
-
-    // El neto para la empresa es el total menos la comisión del conductor y los gastos
+    const totalExpenses = fuelExpense + otherExpenses
+    const cashAmount = totalAmount - cardAmount - invoiceAmount - otherAmount - totalExpenses - driverCommission
     const netAmount = totalAmount - driverCommission - totalExpenses
 
     return {
@@ -411,6 +404,7 @@ export default function NuevoRegistroPage() {
                       value={formData.startKm}
                       onChange={handleInputChange}
                       required
+                      placeholder="0.00"
                     />
                   </div>
                   <div className="space-y-2">
@@ -422,6 +416,7 @@ export default function NuevoRegistroPage() {
                       value={formData.endKm}
                       onChange={handleInputChange}
                       required
+                      placeholder="0.00"
                     />
                   </div>
                   <div className="space-y-2">
@@ -449,6 +444,7 @@ export default function NuevoRegistroPage() {
                   step="0.01"
                   value={formData.totalAmount}
                   onChange={handleInputChange}
+                  placeholder="0.00"
                   required
                 />
               </div>
@@ -463,6 +459,7 @@ export default function NuevoRegistroPage() {
                     step="0.01"
                     value={formData.cardAmount}
                     onChange={handleInputChange}
+                    placeholder="0.00"
                   />
                 </div>
                 <div className="space-y-2">
@@ -474,6 +471,7 @@ export default function NuevoRegistroPage() {
                     step="0.01"
                     value={formData.invoiceAmount}
                     onChange={handleInputChange}
+                    placeholder="0.00"
                   />
                 </div>
               </div>
@@ -488,6 +486,7 @@ export default function NuevoRegistroPage() {
                     step="0.01"
                     value={formData.otherAmount}
                     onChange={handleInputChange}
+                    placeholder="0.00"
                   />
                 </div>
                 <div className="space-y-2">
@@ -522,6 +521,7 @@ export default function NuevoRegistroPage() {
                     step="0.01"
                     value={formData.fuelExpense}
                     onChange={handleInputChange}
+                    placeholder="0.00"
                   />
                 </div>
                 <div className="space-y-2">
@@ -533,6 +533,7 @@ export default function NuevoRegistroPage() {
                     step="0.01"
                     value={formData.otherExpenses}
                     onChange={handleInputChange}
+                    placeholder="0.00"
                   />
                 </div>
               </div>

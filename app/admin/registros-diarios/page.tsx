@@ -382,13 +382,19 @@ export default function AdminDailyRecordsPage() {
       const fromDate = format(dateRange.from, "yyyy-MM-dd")
       const toDate = format(dateRange.to, "yyyy-MM-dd")
 
-      let url = `/api/export/daily-records?from=${fromDate}&to=${toDate}`
+      let url = `/api/export/daily-records?from=${fromDate}&to=${toDate}&format=csv`
 
       if (driverFilter !== "all") {
         url += `&driverId=${driverFilter}`
       }
 
-      window.open(url, "_blank")
+      // Crear un enlace temporal para descargar
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `registros_${fromDate}_${toDate}.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
     } catch (error) {
       console.error("Error al exportar a Excel:", error)
       toast({
@@ -594,6 +600,13 @@ export default function AdminDailyRecordsPage() {
                         <div className="flex space-x-2">
                           <Button variant="ghost" size="sm" onClick={() => viewRecordDetails(record.id)}>
                             <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(`/api/daily-records/${record.id}/pdf`, "_blank")}
+                          >
+                            <Download className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="sm">
                             <Edit className="h-4 w-4" />
@@ -983,7 +996,10 @@ export default function AdminDailyRecordsPage() {
                 <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
                   Cerrar
                 </Button>
-                <Button variant="outline">
+                <Button
+                  variant="outline"
+                  onClick={() => window.open(`/api/daily-records/${viewRecord?.id}/pdf`, "_blank")}
+                >
                   <FileText className="h-4 w-4 mr-2" />
                   Exportar PDF
                 </Button>

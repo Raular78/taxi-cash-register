@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DateRangePicker } from "@/components/ui/date-range-picker"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/components/ui/use-toast"
-import { Search, Plus, Eye, ArrowLeft, Clock, MapPin, Euro, ImageIcon } from "lucide-react"
+import { Search, Plus, Eye, ArrowLeft, Clock, MapPin, Euro, ImageIcon, Download, FileText } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface DailyRecord {
@@ -106,6 +106,30 @@ export default function ConductorRegistrosDiariosPage() {
       style: "currency",
       currency: "EUR",
     }).format(amount)
+  }
+
+  const exportToExcel = async () => {
+    try {
+      const fromDate = format(dateRange.from, "yyyy-MM-dd")
+      const toDate = format(dateRange.to, "yyyy-MM-dd")
+
+      const url = `/api/export/daily-records?from=${fromDate}&to=${toDate}&format=csv`
+
+      // Crear un enlace temporal para descargar
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `mis_registros_${fromDate}_${toDate}.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch (error) {
+      console.error("Error al exportar:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo exportar los registros",
+        variant: "destructive",
+      })
+    }
   }
 
   const filteredRecords = records.filter(
@@ -221,6 +245,10 @@ export default function ConductorRegistrosDiariosPage() {
               <div className="lg:w-80">
                 <DateRangePicker dateRange={dateRange} onRangeChange={setDateRange} />
               </div>
+              <Button variant="outline" onClick={exportToExcel} className="lg:w-auto">
+                <Download className="h-4 w-4 mr-2" />
+                Exportar CSV
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -501,6 +529,16 @@ export default function ConductorRegistrosDiariosPage() {
                     <p className="text-sm text-muted-foreground">{viewRecord.notes}</p>
                   </div>
                 )}
+
+                <div className="flex justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => window.open(`/api/daily-records/${viewRecord?.id}/pdf`, "_blank")}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Descargar PDF
+                  </Button>
+                </div>
 
                 {viewRecord.imageUrl && (
                   <div>
