@@ -157,7 +157,8 @@ export default function ConductorDashboard() {
       console.log(`Fetching records from ${fromDate} to ${toDate}`)
       console.log("Current session:", session.user)
 
-      const response = await fetch(`/api/records?from=${fromDate}&to=${toDate}`)
+      // Cambiar a daily-records en lugar de records
+      const response = await fetch(`/api/daily-records?from=${fromDate}&to=${toDate}`)
 
       if (!response.ok) {
         const errorData = await response.json()
@@ -169,12 +170,12 @@ export default function ConductorDashboard() {
 
       // Actualizar información de debug
       setDebugInfo(`
-        Usuario: ${session.user.username} (ID: ${session.user.id})
-        Rol: ${session.user.role}
-        Registros encontrados: ${Array.isArray(data) ? data.length : 0}
-        Rango de fechas: ${fromDate} - ${toDate}
-        Respuesta de la API: ${JSON.stringify(data, null, 2)}
-      `)
+      Usuario: ${session.user.username} (ID: ${session.user.id})
+      Rol: ${session.user.role}
+      Registros encontrados: ${Array.isArray(data) ? data.length : 0}
+      Rango de fechas: ${fromDate} - ${toDate}
+      Respuesta de la API: ${JSON.stringify(data, null, 2)}
+    `)
 
       // Si no hay datos, usar un array vacío
       setRecords(Array.isArray(data) ? data : [])
@@ -190,10 +191,10 @@ export default function ConductorDashboard() {
       const errorMessage = error instanceof Error ? error.message : "Error desconocido"
       setError(`No se pudieron cargar los registros: ${errorMessage}`)
       setDebugInfo(`
-        Error: ${errorMessage}
-        Usuario: ${session.user.username} (ID: ${session.user.id})
-        Rol: ${session.user.role}
-      `)
+      Error: ${errorMessage}
+      Usuario: ${session.user.username} (ID: ${session.user.id})
+      Rol: ${session.user.role}
+    `)
       toast({
         title: "Error",
         description: errorMessage,

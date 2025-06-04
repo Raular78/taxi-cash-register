@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import prisma from "@/app/lib/db"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
-export async function POST(request) {
+export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -18,23 +18,22 @@ export async function POST(request) {
       data.driverId = Number.parseInt(session.user.id)
     }
 
-    // Guardar en dailyRecord
     const record = await prisma.dailyRecord.create({
       data: {
         date: new Date(data.date),
-        startKm: data.startKm || 0,
-        endKm: data.endKm || 0,
-        totalKm: data.totalKm || 0,
-        cashAmount: Number.parseFloat(data.cashAmount) || 0,
-        cardAmount: Number.parseFloat(data.cardAmount) || 0,
-        invoiceAmount: Number.parseFloat(data.invoiceAmount) || 0,
-        otherAmount: Number.parseFloat(data.otherAmount) || 0,
-        totalAmount: Number.parseFloat(data.totalAmount) || 0,
-        fuelExpense: Number.parseFloat(data.fuelExpense) || 0,
-        otherExpenses: Number.parseFloat(data.otherExpenses) || 0,
+        startKm: data.startKm,
+        endKm: data.endKm,
+        totalKm: data.totalKm,
+        cashAmount: data.cashAmount,
+        cardAmount: data.cardAmount,
+        invoiceAmount: data.invoiceAmount,
+        otherAmount: data.otherAmount,
+        totalAmount: data.totalAmount,
+        fuelExpense: data.fuelExpense,
+        otherExpenses: data.otherExpenses,
         otherExpenseNotes: data.otherExpenseNotes || null,
-        driverCommission: Number.parseFloat(data.driverCommission) || 0,
-        netAmount: Number.parseFloat(data.netAmount) || 0,
+        driverCommission: data.driverCommission,
+        netAmount: data.netAmount,
         notes: data.notes || null,
         shiftStart: data.shiftStart || null,
         shiftEnd: data.shiftEnd || null,
@@ -50,7 +49,7 @@ export async function POST(request) {
   }
 }
 
-export async function GET(request) {
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -72,7 +71,7 @@ export async function GET(request) {
       whereClause.driverId = Number.parseInt(driverId)
     }
 
-    // Filtro de fechas
+    // Filtro de fechas - solo aplicar si se especifican explícitamente
     if (from && to) {
       whereClause.date = {
         gte: new Date(from),
@@ -80,7 +79,6 @@ export async function GET(request) {
       }
     }
 
-    // Consultar dailyRecord directamente
     const records = await prisma.dailyRecord.findMany({
       where: whereClause,
       orderBy: {
@@ -96,7 +94,6 @@ export async function GET(request) {
       },
     })
 
-    // Devolver los datos tal como están en dailyRecord para que el conductor los procese correctamente
     return NextResponse.json(records)
   } catch (error) {
     console.error("Error al obtener registros:", error)

@@ -58,47 +58,29 @@ interface DailyRecord {
   }
 }
 
-interface Record {
-  id: number
-  date: string
-  origin: string
-  destination: string
-  distance: number
-  fare: number
-  tip: number
-  totalAmount: number
-  paymentMethod: string
-  driverId: number
-  driver?: {
-    id: number
-    username: string
-  }
-}
-
 export default function AdminDashboard() {
   const { data: session } = useSession()
   const [dailyRecords, setDailyRecords] = useState<DailyRecord[]>([])
-  const [records, setRecords] = useState<Record[]>([])
   const [loading, setLoading] = useState(true)
   const [dateRange, setDateRange] = useState({
     from: subDays(new Date(), 30),
     to: new Date(),
   })
   const [activeTab, setActiveTab] = useState("overview")
-  const [expenses, setExpenses] = useState<any[]>([])
 
   useEffect(() => {
     if (session) {
       fetchDailyRecords()
-      fetchRecords()
-      fetchExpenses()
     }
   }, [session, dateRange])
 
   const fetchDailyRecords = async () => {
     try {
+      setLoading(true)
       const fromDate = format(dateRange.from, "yyyy-MM-dd")
       const toDate = format(dateRange.to, "yyyy-MM-dd")
+
+      console.log("Fetching daily records from:", fromDate, "to:", toDate)
 
       const response = await fetch(`/api/daily-records?from=${fromDate}&to=${toDate}`)
       if (!response.ok) {
@@ -106,23 +88,8 @@ export default function AdminDashboard() {
       }
 
       const data = await response.json()
-      console.log("Registros diarios obtenidos:", data.length)
+      console.log("Registros diarios obtenidos:", data.length, data)
       setDailyRecords(data)
-    } catch (error) {
-      console.error("Error:", error)
-    }
-  }
-
-  const fetchRecords = async () => {
-    try {
-      const response = await fetch("/api/records")
-      if (!response.ok) {
-        throw new Error("Error al obtener registros")
-      }
-
-      const data = await response.json()
-      console.log("Registros individuales obtenidos:", data.length)
-      setRecords(data)
     } catch (error) {
       console.error("Error:", error)
     } finally {
@@ -130,61 +97,42 @@ export default function AdminDashboard() {
     }
   }
 
-  const fetchExpenses = async () => {
-    try {
-      const fromDate = format(dateRange.from, "yyyy-MM-dd")
-      const toDate = format(dateRange.to, "yyyy-MM-dd")
-
-      const response = await fetch(`/api/expenses?from=${fromDate}&to=${toDate}`)
-      if (!response.ok) {
-        throw new Error("Error al obtener gastos")
-      }
-
-      const data = await response.json()
-      console.log("Gastos obtenidos:", data.length)
-      setExpenses(data)
-    } catch (error) {
-      console.error("Error al cargar gastos:", error)
-    }
-  }
-
-  // Cálculos para tarjetas de resumen
+  // Cálculos para tarjetas de resumen basados únicamente en dailyRecords
   const getTotalIncome = () => {
-    return dailyRecords.reduce((sum, record) => sum + record.totalAmount, 0)
+    const total = dailyRecords.reduce((sum, record) => sum + (record.totalAmount || 0), 0)
+    console.log("Total income calculated:", total)
+    return total
   }
 
   const getTotalKm = () => {
-    return dailyRecords.reduce((sum, record) => sum + record.totalKm, 0)
+    const total = dailyRecords.reduce((sum, record) => sum + (record.totalKm || 0), 0)
+    console.log("Total km calculated:", total)
+    return total
   }
 
   const getTotalExpenses = () => {
-    // Gastos de registros diarios (combustible y otros)
-    const dailyExpenses = dailyRecords.reduce((sum, record) => sum + record.fuelExpense + record.otherExpenses, 0)
-
-    // Gastos de la tabla Expense
-    const additionalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0)
-
-    console.log("Gastos diarios:", dailyExpenses, "Gastos adicionales:", additionalExpenses)
-
-    return dailyExpenses + additionalExpenses
+    const total = dailyRecords.reduce((sum, record) => sum + (record.fuelExpense || 0) + (record.otherExpenses || 0), 0)
+    console.log("Total expenses calculated:", total)
+    return total
   }
 
-  // Modificar la función getTotalNetAmount para que reste correctamente los gastos
+  const getTotalCommission = () => {
+    const total = dailyRecords.reduce((sum, record) => sum + (record.driverCommission || 0), 0)
+    console.log("Total commission calculated:", total)
+    return total
+  }
+
   const getTotalNetAmount = () => {
     const totalIncome = getTotalIncome()
     const totalExpenses = getTotalExpenses()
     const totalCommissions = getTotalCommission()
-
-    // Corregir el cálculo para restar tanto comisiones como gastos
-    return totalIncome - totalExpenses - totalCommissions
-  }
-
-  const getTotalCommission = () => {
-    return dailyRecords.reduce((sum, record) => sum + record.driverCommission, 0)
+    const net = totalIncome - totalExpenses - totalCommissions
+    console.log("Net amount calculated:", { totalIncome, totalExpenses, totalCommissions, net })
+    return net
   }
 
   const getTotalServices = () => {
-    return records.length
+    return dailyRecords.length
   }
 
   // Datos para gráficos
@@ -204,11 +152,11 @@ export default function AdminDashboard() {
           }
         }
 
-        acc[date].ingresos += record.totalAmount
-        acc[date].gastos += record.fuelExpense + record.otherExpenses
-        acc[date].comision += record.driverCommission
-        acc[date].neto += record.netAmount
-        acc[date].km += record.totalKm
+        acc[date].ingresos += record.totalAmount || 0
+        acc[date].gastos += (record.fuelExpense || 0) + (record.otherExpenses || 0)
+        acc[date].comision += record.driverCommission || 0
+        acc[date].neto += record.netAmount || 0
+        acc[date].km += record.totalKm || 0
 
         return acc
       },
@@ -216,11 +164,14 @@ export default function AdminDashboard() {
     )
 
     // Convertir a array y ordenar por fecha
-    return Object.values(groupedByDate).sort((a, b) => {
+    const chartData = Object.values(groupedByDate).sort((a, b) => {
       const dateA = new Date(a.date.split("/").reverse().join("/"))
       const dateB = new Date(b.date.split("/").reverse().join("/"))
       return dateA.getTime() - dateB.getTime()
     })
+
+    console.log("Chart data prepared:", chartData)
+    return chartData
   }
 
   const chartData = prepareChartData()
@@ -228,18 +179,21 @@ export default function AdminDashboard() {
   // Preparar datos para gráfico de métodos de pago
   const preparePaymentMethodData = () => {
     const paymentData = {
-      efectivo: dailyRecords.reduce((sum, record) => sum + record.cashAmount, 0),
-      tarjeta: dailyRecords.reduce((sum, record) => sum + record.cardAmount, 0),
-      factura: dailyRecords.reduce((sum, record) => sum + record.invoiceAmount, 0),
-      otros: dailyRecords.reduce((sum, record) => sum + record.otherAmount, 0),
+      efectivo: dailyRecords.reduce((sum, record) => sum + (record.cashAmount || 0), 0),
+      tarjeta: dailyRecords.reduce((sum, record) => sum + (record.cardAmount || 0), 0),
+      factura: dailyRecords.reduce((sum, record) => sum + (record.invoiceAmount || 0), 0),
+      otros: dailyRecords.reduce((sum, record) => sum + (record.otherAmount || 0), 0),
     }
 
-    return [
+    const result = [
       { name: "Efectivo", value: paymentData.efectivo },
       { name: "Tarjeta", value: paymentData.tarjeta },
       { name: "Factura", value: paymentData.factura },
       { name: "Otros", value: paymentData.otros },
     ]
+
+    console.log("Payment method data prepared:", result)
+    return result
   }
 
   const paymentMethodData = preparePaymentMethodData()
@@ -250,6 +204,16 @@ export default function AdminDashboard() {
       style: "currency",
       currency: "EUR",
     }).format(amount)
+  }
+
+  if (loading) {
+    return (
+      <div className="container mx-auto py-6 space-y-6">
+        <div className="flex justify-center items-center h-64">
+          <p>Cargando datos del dashboard...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -266,6 +230,12 @@ export default function AdminDashboard() {
             Exportar datos
           </Button>
         </div>
+      </div>
+
+      {/* Debug info */}
+      <div className="text-xs text-gray-500 p-2 bg-gray-100 rounded">
+        Debug: {dailyRecords.length} registros cargados | Período: {format(dateRange.from, "dd/MM/yyyy")} -{" "}
+        {format(dateRange.to, "dd/MM/yyyy")}
       </div>
 
       {/* Tarjetas de resumen */}
@@ -458,7 +428,9 @@ export default function AdminDashboard() {
                           <TableCell>{record.driver?.username || "N/A"}</TableCell>
                           <TableCell>{record.totalKm} km</TableCell>
                           <TableCell>{formatCurrency(record.totalAmount)}</TableCell>
-                          <TableCell>{formatCurrency(record.fuelExpense + record.otherExpenses)}</TableCell>
+                          <TableCell>
+                            {formatCurrency((record.fuelExpense || 0) + (record.otherExpenses || 0))}
+                          </TableCell>
                           <TableCell>{formatCurrency(record.driverCommission)}</TableCell>
                           <TableCell>{formatCurrency(record.netAmount)}</TableCell>
                         </TableRow>
@@ -468,7 +440,7 @@ export default function AdminDashboard() {
                 </div>
               ) : (
                 <div className="text-center py-6">
-                  <p className="text-muted-foreground">No hay registros disponibles.</p>
+                  <p className="text-muted-foreground">No hay registros disponibles para el período seleccionado.</p>
                 </div>
               )}
             </CardContent>
@@ -483,7 +455,7 @@ export default function AdminDashboard() {
                 <CardDescription>Gestión de conductores</CardDescription>
               </div>
               <Button asChild>
-                <Link href="/admin/conductores">
+                <Link href="/admin/usuarios">
                   <Users className="h-4 w-4 mr-2" />
                   Ver conductores
                 </Link>
