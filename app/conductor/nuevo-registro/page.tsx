@@ -25,22 +25,18 @@ export default function NuevoRegistroPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [isJornadaPartida, setIsJornadaPartida] = useState(false)
-  const [showPhotoCapture, setShowPhotoCapture] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
 
-  // Modificar el estado inicial para incluir totalAmount como campo de entrada
-  // y cashAmount como campo calculado
   const [formData, setFormData] = useState({
     date: new Date(),
-    startKm: "", // Cambiar de 0 a ""
-    endKm: "", // Cambiar de 0 a ""
-    totalAmount: "", // Cambiar de 0 a ""
-    cashAmount: "", // Cambiar de 0 a ""
-    cardAmount: "", // Cambiar de 0 a ""
-    invoiceAmount: "", // Cambiar de 0 a ""
-    otherAmount: "", // Cambiar de 0 a ""
-    fuelExpense: "", // Cambiar de 0 a ""
-    otherExpenses: "", // Cambiar de 0 a ""
+    startKm: "",
+    endKm: "",
+    totalAmount: "",
+    cardAmount: "",
+    invoiceAmount: "",
+    otherAmount: "",
+    fuelExpense: "",
+    otherExpenses: "",
     otherExpenseNotes: "",
     notes: "",
     shiftStart: "",
@@ -58,30 +54,10 @@ export default function NuevoRegistroPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-
-    // Convertir a número si es un campo numérico
-    if (
-      [
-        "startKm",
-        "endKm",
-        "totalAmount",
-        "cardAmount",
-        "invoiceAmount",
-        "otherAmount",
-        "fuelExpense",
-        "otherExpenses",
-      ].includes(name)
-    ) {
-      setFormData({
-        ...formData,
-        [name]: value, // Mantener como string para permitir edición
-      })
-    } else {
-      setFormData({
-        ...formData,
-        [name]: value,
-      })
-    }
+    setFormData({
+      ...formData,
+      [name]: value,
+    })
   }
 
   const handleDateChange = (date: Date | undefined) => {
@@ -93,14 +69,6 @@ export default function NuevoRegistroPage() {
     }
   }
 
-  const handleImageCaptured = (imageUrl: string) => {
-    setFormData({
-      ...formData,
-      imageUrl,
-    })
-    setShowPhotoCapture(false)
-  }
-
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -108,18 +76,18 @@ export default function NuevoRegistroPage() {
     setIsUploading(true)
 
     try {
-      const formData = new FormData()
-      formData.append("file", file)
-
-      // Aquí iría la lógica para subir la imagen a un servicio de almacenamiento
-      // Por ahora, simularemos una URL
-
+      // Simular subida de imagen - en producción aquí iría la lógica real
       setTimeout(() => {
+        // En lugar de URL.createObjectURL, usar una URL simulada válida
         setFormData((prev) => ({
           ...prev,
-          imageUrl: URL.createObjectURL(file), // Esto es temporal, en producción usaríamos la URL real
+          imageUrl: `https://example.com/images/${file.name}`, // URL simulada válida
         }))
         setIsUploading(false)
+        toast({
+          title: "Imagen subida",
+          description: "La imagen se ha subido correctamente",
+        })
       }, 1000)
     } catch (error) {
       console.error("Error al subir imagen:", error)
@@ -132,7 +100,6 @@ export default function NuevoRegistroPage() {
     }
   }
 
-  // Modificar la función calculateTotals para implementar la nueva lógica
   const calculateTotals = () => {
     const startKm = Number.parseFloat(formData.startKm) || 0
     const endKm = Number.parseFloat(formData.endKm) || 0
@@ -148,7 +115,7 @@ export default function NuevoRegistroPage() {
     const otherExpenses = Number.parseFloat(formData.otherExpenses) || 0
 
     const totalExpenses = fuelExpense + otherExpenses
-    const cashAmount = totalAmount - cardAmount - invoiceAmount - otherAmount - totalExpenses - driverCommission
+    const cashAmount = totalAmount - cardAmount - invoiceAmount - otherAmount
     const netAmount = totalAmount - driverCommission - totalExpenses
 
     return {
@@ -161,7 +128,6 @@ export default function NuevoRegistroPage() {
     }
   }
 
-  // Calcular horas trabajadas
   const calculateWorkHours = () => {
     if (!formData.shiftStart || !formData.shiftEnd) return "No disponible"
 
@@ -171,7 +137,6 @@ export default function NuevoRegistroPage() {
 
       let totalMinutes = endHour * 60 + endMinute - (startHour * 60 + startMinute)
 
-      // Si es jornada partida, restar el tiempo de descanso
       if (isJornadaPartida && formData.shiftBreakStart && formData.shiftBreakEnd) {
         const [breakStartHour, breakStartMinute] = formData.shiftBreakStart.split(":").map(Number)
         const [breakEndHour, breakEndMinute] = formData.shiftBreakEnd.split(":").map(Number)
@@ -180,7 +145,6 @@ export default function NuevoRegistroPage() {
         totalMinutes -= breakMinutes
       }
 
-      // Si el resultado es negativo (por ejemplo, si la jornada cruza la medianoche)
       if (totalMinutes < 0) {
         totalMinutes += 24 * 60
       }
@@ -200,23 +164,34 @@ export default function NuevoRegistroPage() {
 
     const { totalKm, totalAmount, cashAmount, netAmount, driverCommission } = calculateTotals()
 
-    // Preparar datos para enviar
+    // Preparar datos para enviar - IMPORTANTE: usar /api/daily-records en lugar de /api/records
     const dataToSend = {
-      ...formData,
+      date: formData.date.toISOString(),
+      startKm: Number.parseFloat(formData.startKm) || 0,
+      endKm: Number.parseFloat(formData.endKm) || 0,
       totalKm,
+      cashAmount,
+      cardAmount: Number.parseFloat(formData.cardAmount) || 0,
+      invoiceAmount: Number.parseFloat(formData.invoiceAmount) || 0,
+      otherAmount: Number.parseFloat(formData.otherAmount) || 0,
       totalAmount,
-      cashAmount, // Ahora es un valor calculado
-      netAmount,
+      fuelExpense: Number.parseFloat(formData.fuelExpense) || 0,
+      otherExpenses: Number.parseFloat(formData.otherExpenses) || 0,
+      otherExpenseNotes: formData.otherExpenseNotes || null,
       driverCommission,
-      // Si es jornada partida, incluir los datos de descanso
-      ...(isJornadaPartida && {
-        shiftBreakStart: formData.shiftBreakStart,
-        shiftBreakEnd: formData.shiftBreakEnd,
-      }),
+      netAmount,
+      notes: formData.notes || null,
+      shiftStart: formData.shiftStart || null,
+      shiftEnd: formData.shiftEnd || null,
+      shiftBreakStart: isJornadaPartida ? formData.shiftBreakStart || null : null,
+      shiftBreakEnd: isJornadaPartida ? formData.shiftBreakEnd || null : null,
+      imageUrl: formData.imageUrl || null,
     }
 
     try {
-      const response = await fetch("/api/records", {
+      console.log("Enviando datos:", dataToSend)
+
+      const response = await fetch("/api/daily-records", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -228,6 +203,9 @@ export default function NuevoRegistroPage() {
         const errorData = await response.json()
         throw new Error(errorData.error || "Error al crear el registro")
       }
+
+      const result = await response.json()
+      console.log("Registro creado:", result)
 
       toast({
         title: "Registro creado",
@@ -312,7 +290,6 @@ export default function NuevoRegistroPage() {
                 <div className="flex items-center justify-between">
                   <Label>Horario de Jornada</Label>
                   <div className="flex items-center space-x-2">
-                    {/* Usando un checkbox HTML nativo en lugar del componente Checkbox */}
                     <div className="flex items-center">
                       <input
                         type="checkbox"
@@ -331,15 +308,13 @@ export default function NuevoRegistroPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="shiftStart">Hora inicio</Label>
-                    <div className="flex">
-                      <Input
-                        id="shiftStart"
-                        name="shiftStart"
-                        type="time"
-                        value={formData.shiftStart}
-                        onChange={handleInputChange}
-                      />
-                    </div>
+                    <Input
+                      id="shiftStart"
+                      name="shiftStart"
+                      type="time"
+                      value={formData.shiftStart}
+                      onChange={handleInputChange}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="shiftEnd">Hora fin</Label>
@@ -428,7 +403,7 @@ export default function NuevoRegistroPage() {
             </CardContent>
           </Card>
 
-          {/* Ingresos - Modificado para usar totalAmount como entrada y cashAmount como calculado */}
+          {/* Ingresos */}
           <Card>
             <CardHeader>
               <CardTitle>Ingresos</CardTitle>
@@ -558,7 +533,7 @@ export default function NuevoRegistroPage() {
             </CardContent>
           </Card>
 
-          {/* Resumen - Modificado para mostrar la nueva lógica de cálculo */}
+          {/* Resumen */}
           <Card>
             <CardHeader>
               <CardTitle>Resumen</CardTitle>
