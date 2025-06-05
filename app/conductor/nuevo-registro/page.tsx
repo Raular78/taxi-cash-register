@@ -18,14 +18,14 @@ import { CalendarIcon, ChevronLeft } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "../../../components/ui/popover"
 import { Calendar } from "../../../components/ui/calendar"
 import { cn } from "../../../lib/utils"
-import { UploadIcon as FileUpload } from "lucide-react"
+import PhotoCapture from "@/app/components/photo-capture"
 
 export default function NuevoRegistroPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [isJornadaPartida, setIsJornadaPartida] = useState(false)
-  const [isUploading, setIsUploading] = useState(false)
+  const [showPhotoCapture, setShowPhotoCapture] = useState(true)
 
   const [formData, setFormData] = useState({
     date: new Date(),
@@ -69,35 +69,12 @@ export default function NuevoRegistroPage() {
     }
   }
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    setIsUploading(true)
-
-    try {
-      // Simular subida de imagen - en producción aquí iría la lógica real
-      setTimeout(() => {
-        // En lugar de URL.createObjectURL, usar una URL simulada válida
-        setFormData((prev) => ({
-          ...prev,
-          imageUrl: `https://example.com/images/${file.name}`, // URL simulada válida
-        }))
-        setIsUploading(false)
-        toast({
-          title: "Imagen subida",
-          description: "La imagen se ha subido correctamente",
-        })
-      }, 1000)
-    } catch (error) {
-      console.error("Error al subir imagen:", error)
-      toast({
-        title: "Error",
-        description: "No se pudo subir la imagen",
-        variant: "destructive",
-      })
-      setIsUploading(false)
-    }
+  const handleImageCaptured = (imageUrl: string) => {
+    console.log("Imagen capturada:", imageUrl)
+    setFormData({
+      ...formData,
+      imageUrl,
+    })
   }
 
   const calculateTotals = () => {
@@ -564,41 +541,10 @@ export default function NuevoRegistroPage() {
                 </div>
               </div>
 
-              {/* Sección para subir imagen */}
+              {/* Sección para subir imagen - Usando PhotoCapture */}
               <div className="space-y-2">
                 <Label>Imagen de la Hoja (opcional)</Label>
-                <div className="flex flex-wrap items-center gap-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => document.getElementById("imageUpload")?.click()}
-                    disabled={isUploading}
-                    className="w-full sm:w-auto"
-                  >
-                    <FileUpload className="mr-2 h-4 w-4" />
-                    {isUploading ? "Subiendo..." : "Subir Imagen"}
-                  </Button>
-
-                  {formData.imageUrl && <span className="text-sm text-green-600">Imagen cargada</span>}
-
-                  <input
-                    id="imageUpload"
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleImageUpload}
-                  />
-                </div>
-
-                {formData.imageUrl && (
-                  <div className="mt-4 border rounded-md overflow-hidden">
-                    <img
-                      src={formData.imageUrl || "/placeholder.svg"}
-                      alt="Hoja de registro"
-                      className="w-full h-auto max-h-[200px] object-contain"
-                    />
-                  </div>
-                )}
+                <PhotoCapture onImageCaptured={handleImageCaptured} existingImageUrl={formData.imageUrl} />
               </div>
 
               <div className="space-y-2 pt-4">
