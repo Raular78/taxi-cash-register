@@ -24,20 +24,18 @@ export default function NuevoRegistroPage() {
   const router = useRouter()
   const [isUploading, setIsUploading] = useState(false)
   const [drivers, setDrivers] = useState<User[]>([])
-  // Modificar el estado inicial para incluir totalAmount como campo de entrada
-  // y cashAmount como campo calculado
   const [newRecord, setNewRecord] = useState({
     date: format(new Date(), "yyyy-MM-dd"),
     driverId: "",
-    startKm: "", // Cambiar de "" a mantener como ""
-    endKm: "", // Cambiar de "" a mantener como ""
-    totalAmount: "", // Mantener como ""
-    cashAmount: "", // Mantener como ""
-    cardAmount: "", // Mantener como ""
-    invoiceAmount: "", // Mantener como ""
-    otherAmount: "", // Mantener como ""
-    fuelExpense: "", // Mantener como ""
-    otherExpenses: "", // Mantener como ""
+    startKm: "",
+    endKm: "",
+    totalAmount: "",
+    cashAmount: "",
+    cardAmount: "",
+    invoiceAmount: "",
+    otherAmount: "",
+    fuelExpense: "",
+    otherExpenses: "",
     otherExpenseNotes: "",
     shiftStart: "",
     shiftEnd: "",
@@ -51,7 +49,6 @@ export default function NuevoRegistroPage() {
 
   const fetchDrivers = async () => {
     try {
-      // Usar el nuevo endpoint con un timestamp para evitar la caché
       const timestamp = new Date().getTime()
       const response = await fetch(`/api/drivers?t=${timestamp}`)
 
@@ -61,7 +58,6 @@ export default function NuevoRegistroPage() {
 
       const data = await response.json()
 
-      // Verificar explícitamente que data es un array
       if (Array.isArray(data) && data.length > 0) {
         console.log("Conductores obtenidos correctamente:", data)
         setDrivers(data)
@@ -96,32 +92,23 @@ export default function NuevoRegistroPage() {
     }))
   }
 
-  // Reemplazar la función calculateTotals con esta nueva lógica
   const calculateTotals = () => {
     const startKm = Number.parseInt(newRecord.startKm) || 0
     const endKm = Number.parseInt(newRecord.endKm) || 0
     const totalKm = endKm - startKm
 
-    // El total recaudado es un valor de entrada
     const totalAmount = Number.parseFloat(newRecord.totalAmount) || 0
-
-    // Calcular la comisión del conductor (35% del total recaudado)
     const driverCommission = totalAmount * 0.35
 
-    // Obtener los valores de tarjeta, facturación y otros ingresos
     const cardAmount = Number.parseFloat(newRecord.cardAmount) || 0
     const invoiceAmount = Number.parseFloat(newRecord.invoiceAmount) || 0
     const otherAmount = Number.parseFloat(newRecord.otherAmount) || 0
 
-    // Calcular los gastos
     const fuelExpense = Number.parseFloat(newRecord.fuelExpense) || 0
     const otherExpenses = Number.parseFloat(newRecord.otherExpenses) || 0
     const totalExpenses = fuelExpense + otherExpenses
 
-    // Calcular el efectivo como el total menos todos los demás conceptos
     const cashAmount = totalAmount - cardAmount - invoiceAmount - otherAmount - totalExpenses - driverCommission
-
-    // El neto para la empresa es el total menos la comisión del conductor
     const netAmount = totalAmount - driverCommission - totalExpenses
 
     return {
@@ -134,7 +121,6 @@ export default function NuevoRegistroPage() {
     }
   }
 
-  // Modificar el handleSubmit para usar la nueva lógica
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -156,7 +142,7 @@ export default function NuevoRegistroPage() {
       endKm: Number.parseInt(newRecord.endKm),
       totalKm,
       totalAmount: Number.parseFloat(newRecord.totalAmount) || 0,
-      cashAmount, // Ahora es un valor calculado
+      cashAmount,
       cardAmount: Number.parseFloat(newRecord.cardAmount) || 0,
       invoiceAmount: Number.parseFloat(newRecord.invoiceAmount) || 0,
       otherAmount: Number.parseFloat(newRecord.otherAmount) || 0,
@@ -184,7 +170,6 @@ export default function NuevoRegistroPage() {
         description: "Registro de jornada creado correctamente",
       })
 
-      // Redirigir a la página de registros diarios
       router.push("/admin/registros-diarios")
     } catch (error) {
       console.error("Error:", error)
@@ -196,6 +181,7 @@ export default function NuevoRegistroPage() {
     }
   }
 
+  // ✅ IMPLEMENTACIÓN REAL DE SUBIDA A VERCEL BLOB
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -203,26 +189,44 @@ export default function NuevoRegistroPage() {
     setIsUploading(true)
 
     try {
+      // Crear FormData para enviar el archivo
       const formData = new FormData()
       formData.append("file", file)
 
-      // Aquí iría la lógica para subir la imagen a un servicio de almacenamiento
-      // Por ahora, simularemos una URL
+      console.log("Subiendo imagen a Vercel Blob...")
 
-      setTimeout(() => {
-        setNewRecord((prev) => ({
-          ...prev,
-          imageUrl: URL.createObjectURL(file), // Esto es temporal, en producción usaríamos la URL real
-        }))
-        setIsUploading(false)
-      }, 1000)
+      // Subir a Vercel Blob usando nuestro endpoint
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Error al subir la imagen: ${response.status} - ${errorText}`)
+      }
+
+      const result = await response.json()
+      console.log("Imagen subida exitosamente:", result)
+
+      // Usar la URL real devuelta por Vercel Blob
+      setNewRecord((prev) => ({
+        ...prev,
+        imageUrl: result.url, // URL permanente de Vercel Blob
+      }))
+
+      toast({
+        title: "Imagen subida",
+        description: "La imagen se ha subido correctamente a Vercel Blob",
+      })
     } catch (error) {
       console.error("Error al subir imagen:", error)
       toast({
         title: "Error",
-        description: "No se pudo subir la imagen",
+        description: error instanceof Error ? error.message : "No se pudo subir la imagen",
         variant: "destructive",
       })
+    } finally {
       setIsUploading(false)
     }
   }
@@ -436,6 +440,7 @@ export default function NuevoRegistroPage() {
               <Input id="notes" name="notes" value={newRecord.notes} onChange={handleInputChange} />
             </div>
 
+            {/* ✅ SECCIÓN DE IMAGEN CON SUBIDA REAL */}
             <div className="space-y-2">
               <Label>Imagen de la Hoja (opcional)</Label>
               <div className="flex flex-wrap items-center gap-4">
@@ -447,10 +452,10 @@ export default function NuevoRegistroPage() {
                   className="w-full sm:w-auto"
                 >
                   <FileUpload className="mr-2 h-4 w-4" />
-                  {isUploading ? "Subiendo..." : "Subir Imagen"}
+                  {isUploading ? "Subiendo a Vercel Blob..." : "Subir Imagen"}
                 </Button>
 
-                {newRecord.imageUrl && <span className="text-sm text-green-600">Imagen cargada</span>}
+                {newRecord.imageUrl && <span className="text-sm text-green-600">✅ Imagen subida a Vercel Blob</span>}
 
                 <input id="imageUpload" type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
               </div>
@@ -460,13 +465,13 @@ export default function NuevoRegistroPage() {
                   <img
                     src={newRecord.imageUrl || "/placeholder.svg"}
                     alt="Hoja de registro"
-                    className="w-full h-auto"
+                    className="w-full h-auto max-h-[400px] object-contain"
                   />
+                  <div className="p-2 bg-muted text-xs text-muted-foreground">URL: {newRecord.imageUrl}</div>
                 </div>
               )}
             </div>
 
-            {/* Modificar la sección de resumen calculado para mostrar el efectivo calculado */}
             <div className="bg-muted p-4 rounded-md">
               <h3 className="font-medium mb-2">Resumen Calculado</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

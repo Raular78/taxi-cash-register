@@ -69,6 +69,7 @@ export default function NuevoRegistroPage() {
     }
   }
 
+  // ✅ IMPLEMENTACIÓN REAL DE SUBIDA A VERCEL BLOB
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -80,6 +81,8 @@ export default function NuevoRegistroPage() {
       const formData = new FormData()
       formData.append("file", file)
 
+      console.log("Subiendo imagen a Vercel Blob...")
+
       // Subir a Vercel Blob usando nuestro endpoint
       const response = await fetch("/api/upload", {
         method: "POST",
@@ -87,26 +90,28 @@ export default function NuevoRegistroPage() {
       })
 
       if (!response.ok) {
-        throw new Error("Error al subir la imagen")
+        const errorText = await response.text()
+        throw new Error(`Error al subir la imagen: ${response.status} - ${errorText}`)
       }
 
       const result = await response.json()
+      console.log("Imagen subida exitosamente:", result)
 
       // Usar la URL real devuelta por Vercel Blob
       setFormData((prev) => ({
         ...prev,
-        imageUrl: result.url, // URL real de Vercel Blob
+        imageUrl: result.url, // URL permanente de Vercel Blob
       }))
 
       toast({
         title: "Imagen subida",
-        description: "La imagen se ha subido correctamente",
+        description: "La imagen se ha subido correctamente a Vercel Blob",
       })
     } catch (error) {
       console.error("Error al subir imagen:", error)
       toast({
         title: "Error",
-        description: "No se pudo subir la imagen",
+        description: error instanceof Error ? error.message : "No se pudo subir la imagen",
         variant: "destructive",
       })
     } finally {
@@ -178,7 +183,6 @@ export default function NuevoRegistroPage() {
 
     const { totalKm, totalAmount, cashAmount, netAmount, driverCommission } = calculateTotals()
 
-    // Preparar datos para enviar - IMPORTANTE: usar /api/daily-records en lugar de /api/records
     const dataToSend = {
       date: formData.date.toISOString(),
       startKm: Number.parseFloat(formData.startKm) || 0,
@@ -199,7 +203,7 @@ export default function NuevoRegistroPage() {
       shiftEnd: formData.shiftEnd || null,
       shiftBreakStart: isJornadaPartida ? formData.shiftBreakStart || null : null,
       shiftBreakEnd: isJornadaPartida ? formData.shiftBreakEnd || null : null,
-      imageUrl: formData.imageUrl || null,
+      imageUrl: formData.imageUrl || null, // URL permanente de Vercel Blob
     }
 
     try {
@@ -578,7 +582,7 @@ export default function NuevoRegistroPage() {
                 </div>
               </div>
 
-              {/* Sección para subir imagen - VERSIÓN SIMPLE QUE FUNCIONA */}
+              {/* ✅ SECCIÓN DE IMAGEN CON SUBIDA REAL */}
               <div className="space-y-2">
                 <Label>Imagen de la Hoja (opcional)</Label>
                 <div className="flex flex-wrap items-center gap-4">
@@ -590,10 +594,10 @@ export default function NuevoRegistroPage() {
                     className="w-full sm:w-auto"
                   >
                     <FileUpload className="mr-2 h-4 w-4" />
-                    {isUploading ? "Subiendo..." : "Subir Imagen"}
+                    {isUploading ? "Subiendo a Vercel Blob..." : "Subir Imagen"}
                   </Button>
 
-                  {formData.imageUrl && <span className="text-sm text-green-600">Imagen cargada</span>}
+                  {formData.imageUrl && <span className="text-sm text-green-600">✅ Imagen subida a Vercel Blob</span>}
 
                   <input
                     id="imageUpload"
@@ -611,6 +615,7 @@ export default function NuevoRegistroPage() {
                       alt="Hoja de registro"
                       className="w-full h-auto max-h-[200px] object-contain"
                     />
+                    <div className="p-2 bg-muted text-xs text-muted-foreground">URL: {formData.imageUrl}</div>
                   </div>
                 )}
               </div>
