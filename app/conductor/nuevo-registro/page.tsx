@@ -183,16 +183,17 @@ export default function NuevoRegistroPage() {
 
     const { totalKm, totalAmount, cashAmount, netAmount, driverCommission } = calculateTotals()
 
+    // Usar la misma estructura que funciona en admin
     const dataToSend = {
-      date: formData.date.toISOString(),
+      date: format(formData.date, "yyyy-MM-dd"), // Usar formato string como en admin
       startKm: Number.parseFloat(formData.startKm) || 0,
       endKm: Number.parseFloat(formData.endKm) || 0,
       totalKm,
+      totalAmount,
       cashAmount,
       cardAmount: Number.parseFloat(formData.cardAmount) || 0,
       invoiceAmount: Number.parseFloat(formData.invoiceAmount) || 0,
       otherAmount: Number.parseFloat(formData.otherAmount) || 0,
-      totalAmount,
       fuelExpense: Number.parseFloat(formData.fuelExpense) || 0,
       otherExpenses: Number.parseFloat(formData.otherExpenses) || 0,
       otherExpenseNotes: formData.otherExpenseNotes || null,
@@ -203,12 +204,13 @@ export default function NuevoRegistroPage() {
       shiftEnd: formData.shiftEnd || null,
       shiftBreakStart: isJornadaPartida ? formData.shiftBreakStart || null : null,
       shiftBreakEnd: isJornadaPartida ? formData.shiftBreakEnd || null : null,
-      imageUrl: formData.imageUrl || null, // URL permanente de Vercel Blob
+      imageUrl: formData.imageUrl || null,
     }
 
     try {
       console.log("Enviando datos:", dataToSend)
 
+      // Usar el mismo endpoint que funciona en admin
       const response = await fetch("/api/daily-records", {
         method: "POST",
         headers: {
@@ -218,16 +220,17 @@ export default function NuevoRegistroPage() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Error al crear el registro")
+        const errorText = await response.text()
+        console.error("Error response:", errorText)
+        throw new Error(`Error al crear el registro: ${response.status} - ${errorText}`)
       }
 
       const result = await response.json()
       console.log("Registro creado:", result)
 
       toast({
-        title: "Registro creado",
-        description: "El registro diario se ha creado correctamente",
+        title: "Éxito",
+        description: "Registro de jornada creado correctamente",
       })
 
       router.push("/conductor/registros-diarios")
