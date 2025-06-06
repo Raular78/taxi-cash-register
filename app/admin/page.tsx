@@ -218,14 +218,18 @@ export default function AdminDashboard() {
 
   return (
     <div className="container mx-auto py-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Panel de Administrador</h1>
-        <div className="flex space-x-2">
+      <div className="flex flex-col space-y-4 lg:flex-row lg:justify-between lg:items-center lg:space-y-0">
+        <h1 className="text-2xl sm:text-3xl font-bold">Panel de Administrador</h1>
+        <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
           <DateRangePicker
             dateRange={{ from: dateRange.from, to: dateRange.to }}
             onRangeChange={(range) => setDateRange({ from: range.from, to: range.to })}
           />
-          <Button variant="outline" onClick={() => window.open("/api/export/daily-records", "_blank")}>
+          <Button
+            variant="outline"
+            onClick={() => window.open("/api/export/daily-records", "_blank")}
+            className="w-full sm:w-auto"
+          >
             <Download className="h-4 w-4 mr-2" />
             Exportar datos
           </Button>
@@ -289,13 +293,25 @@ export default function AdminDashboard() {
 
       {/* Pestañas */}
       <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview">Registros</TabsTrigger>
-          <TabsTrigger value="conductores">Conductores</TabsTrigger>
-          <TabsTrigger value="control-horario">Control Horario</TabsTrigger>
-          <TabsTrigger value="nominas">Nóminas</TabsTrigger>
-          <TabsTrigger value="contabilidad">Contabilidad</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto">
+          <TabsList className="w-full min-w-max">
+            <TabsTrigger value="overview" className="text-xs sm:text-sm">
+              Registros
+            </TabsTrigger>
+            <TabsTrigger value="conductores" className="text-xs sm:text-sm">
+              Conductores
+            </TabsTrigger>
+            <TabsTrigger value="control-horario" className="text-xs sm:text-sm">
+              Control Horario
+            </TabsTrigger>
+            <TabsTrigger value="nominas" className="text-xs sm:text-sm">
+              Nóminas
+            </TabsTrigger>
+            <TabsTrigger value="contabilidad" className="text-xs sm:text-sm">
+              Contabilidad
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="overview" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -380,25 +396,25 @@ export default function AdminDashboard() {
           </div>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="space-y-4">
               <div>
                 <CardTitle>Registros Recientes</CardTitle>
                 <CardDescription>Últimos servicios registrados en el sistema</CardDescription>
               </div>
-              <div className="flex space-x-2">
-                <Button asChild>
+              <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
+                <Button asChild className="w-full sm:w-auto">
                   <Link href="/admin/registros-diarios">
                     <FileText className="h-4 w-4 mr-2" />
                     Ver todos los registros
                   </Link>
                 </Button>
-                <Button asChild>
+                <Button asChild className="w-full sm:w-auto">
                   <Link href="/admin/nuevo-registro">
                     <Plus className="h-4 w-4 mr-2" />
                     Nuevo Registro
                   </Link>
                 </Button>
-                <Button asChild>
+                <Button asChild className="w-full sm:w-auto">
                   <Link href="/admin/importar-registros">
                     <FileUp className="h-4 w-4 mr-2" />
                     Importar Registros
@@ -500,14 +516,14 @@ export default function AdminDashboard() {
                 <CardTitle>Nóminas</CardTitle>
                 <CardDescription>Gestión de nóminas y pagos</CardDescription>
               </div>
-              <div className="flex space-x-2">
-                <Button asChild>
+              <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
+                <Button asChild className="w-full sm:w-auto">
                   <Link href="/admin/nominas">
                     <FileText className="h-4 w-4 mr-2" />
                     Ver nóminas
                   </Link>
                 </Button>
-                <Button asChild>
+                <Button asChild className="w-full sm:w-auto">
                   <Link href="/admin/nueva-nomina">
                     <Plus className="h-4 w-4 mr-2" />
                     Nueva nómina
