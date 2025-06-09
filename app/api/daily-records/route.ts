@@ -12,10 +12,27 @@ export async function POST(request: Request) {
     }
 
     const data = await request.json()
+    console.log("Datos recibidos:", data)
+    console.log("Sesión del usuario:", session.user)
 
-    // Asegurarse de que el driverId sea el del usuario autenticado si es conductor
+    // ✅ ARREGLO: Asegurar que el driverId sea el del usuario autenticado si es conductor
+    let driverId: number
+
     if (session.user.role === "driver") {
-      data.driverId = Number.parseInt(session.user.id)
+      driverId = Number.parseInt(session.user.id)
+      console.log("Usuario conductor, usando driverId de sesión:", driverId)
+    } else if (session.user.role === "admin" && data.driverId) {
+      driverId = Number.parseInt(data.driverId)
+      console.log("Usuario admin, usando driverId del formulario:", driverId)
+    } else {
+      console.error("No se pudo determinar el driverId")
+      return NextResponse.json({ error: "No se pudo determinar el conductor" }, { status: 400 })
+    }
+
+    // Validar que el driverId sea válido
+    if (!driverId || isNaN(driverId)) {
+      console.error("driverId inválido:", driverId)
+      return NextResponse.json({ error: "ID de conductor inválido" }, { status: 400 })
     }
 
     const record = await prisma.dailyRecord.create({
@@ -38,10 +55,11 @@ export async function POST(request: Request) {
         shiftStart: data.shiftStart || null,
         shiftEnd: data.shiftEnd || null,
         imageUrl: data.imageUrl || null,
-        driverId: data.driverId,
+        driverId: driverId, // ✅ Usar el driverId correcto
       },
     })
 
+    console.log("Registro creado exitosamente:", record)
     return NextResponse.json(record)
   } catch (error) {
     console.error("Error al crear registro:", error)

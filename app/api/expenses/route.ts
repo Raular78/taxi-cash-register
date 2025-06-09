@@ -55,6 +55,7 @@ export async function GET(request: NextRequest) {
               "Seguros",
               "Impuestos",
               "Suministros",
+              "Taller", // ✅ AÑADIDO: Categoría taller
             ],
           },
         },
@@ -76,6 +77,7 @@ export async function GET(request: NextRequest) {
           "Seguros",
           "Impuestos",
           "Suministros",
+          "Taller", // ✅ AÑADIDO: Categoría taller
         ],
       }
     }
@@ -184,6 +186,17 @@ export async function GET(request: NextRequest) {
             isRecurring: true,
             frequency: "annual",
             nextDueDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+          },
+          {
+            id: 4,
+            date: new Date(),
+            category: "Taller",
+            description: "Mantenimiento y reparaciones",
+            amount: 200,
+            status: "approved",
+            isRecurring: false,
+            frequency: null,
+            nextDueDate: null,
           },
         ]
 
