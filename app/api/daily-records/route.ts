@@ -1,38 +1,59 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import prisma from "@/app/lib/db"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { authOptions } from "@/app/lib/auth" // ✅ Corregido el import
 
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
+    console.log("Sesión completa:", JSON.stringify(session, null, 2))
 
-    if (!session) {
+    if (!session || !session.user) {
+      console.error("No hay sesión o usuario autenticado")
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
     const data = await request.json()
-    console.log("Datos recibidos:", data)
-    console.log("Sesión del usuario:", session.user)
+    console.log("Datos recibidos:", JSON.stringify(data, null, 2))
+    console.log("Usuario en sesión:", JSON.stringify(session.user, null, 2))
 
     // ✅ ARREGLO: Asegurar que el driverId sea el del usuario autenticado si es conductor
-    let driverId: number
+    let driverId: number | undefined
 
     if (session.user.role === "driver") {
-      driverId = Number.parseInt(session.user.id)
-      console.log("Usuario conductor, usando driverId de sesión:", driverId)
+      // Asegurarse de que el ID existe y es un número
+      if (session.user.id) {
+        driverId = Number.parseInt(session.user.id)
+        console.log("Usuario conductor, usando driverId de sesión:", driverId)
+      } else {
+        console.error("El usuario conductor no tiene ID en la sesión")
+      }
     } else if (session.user.role === "admin" && data.driverId) {
       driverId = Number.parseInt(data.driverId)
       console.log("Usuario admin, usando driverId del formulario:", driverId)
-    } else {
-      console.error("No se pudo determinar el driverId")
-      return NextResponse.json({ error: "No se pudo determinar el conductor" }, { status: 400 })
     }
 
     // Validar que el driverId sea válido
     if (!driverId || isNaN(driverId)) {
-      console.error("driverId inválido:", driverId)
-      return NextResponse.json({ error: "ID de conductor inválido" }, { status: 400 })
+      console.error("driverId inválido o no encontrado:", driverId)
+
+      // ✅ SOLUCIÓN TEMPORAL: Si es conductor y no hay driverId, buscar el usuario en la base de datos
+      if (session.user.role === "driver" && session.user.username) {
+        console.log("Intentando encontrar driverId por username:", session.user.username)
+        const user = await prisma.user.findFirst({
+          where: { username: session.user.username },
+        })
+
+        if (user) {
+          driverId = user.id
+          console.log("driverId encontrado por username:", driverId)
+        } else {
+          console.error("No se encontró usuario con username:", session.user.username)
+          return NextResponse.json({ error: "No se pudo determinar el conductor" }, { status: 400 })
+        }
+      } else {
+        return NextResponse.json({ error: "ID de conductor inválido" }, { status: 400 })
+      }
     }
 
     const record = await prisma.dailyRecord.create({

@@ -183,9 +183,9 @@ export default function NuevoRegistroPage() {
 
     const { totalKm, totalAmount, cashAmount, netAmount, driverCommission } = calculateTotals()
 
-    // Usar la misma estructura que funciona en admin
+    // ✅ ARREGLO: Asegurarse de que el driverId se incluya si está disponible en la sesión
     const dataToSend = {
-      date: format(formData.date, "yyyy-MM-dd"), // Usar formato string como en admin
+      date: format(formData.date, "yyyy-MM-dd"),
       startKm: Number.parseFloat(formData.startKm) || 0,
       endKm: Number.parseFloat(formData.endKm) || 0,
       totalKm,
@@ -205,12 +205,14 @@ export default function NuevoRegistroPage() {
       shiftBreakStart: isJornadaPartida ? formData.shiftBreakStart || null : null,
       shiftBreakEnd: isJornadaPartida ? formData.shiftBreakEnd || null : null,
       imageUrl: formData.imageUrl || null,
+      // ✅ Incluir el driverId si está disponible en la sesión
+      driverId: session?.user?.id ? Number.parseInt(session.user.id) : undefined,
     }
 
     try {
       console.log("Enviando datos:", dataToSend)
+      console.log("Sesión actual:", session)
 
-      // Usar el mismo endpoint que funciona en admin
       const response = await fetch("/api/daily-records", {
         method: "POST",
         headers: {
