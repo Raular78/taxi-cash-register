@@ -93,6 +93,25 @@ export default function AdminDailyRecordsPage() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [recordToDelete, setRecordToDelete] = useState<number | null>(null)
+  const [editRecord, setEditRecord] = useState<DailyRecord | null>(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editFormData, setEditFormData] = useState({
+    date: "",
+    driverId: "",
+    startKm: "",
+    endKm: "",
+    cashAmount: "",
+    cardAmount: "",
+    invoiceAmount: "",
+    otherAmount: "",
+    fuelExpense: "",
+    otherExpenses: "",
+    otherExpenseNotes: "",
+    shiftStart: "",
+    shiftEnd: "",
+    notes: "",
+    imageUrl: "",
+  })
 
   const router = useRouter()
 
@@ -346,6 +365,144 @@ export default function AdminDailyRecordsPage() {
   const confirmDelete = (id: number) => {
     setRecordToDelete(id)
     setIsDeleteDialogOpen(true)
+  }
+
+  const openEditDialog = async (id: number) => {
+    try {
+      const response = await fetch(`/api/daily-records/${id}`)
+      if (!response.ok) {
+        throw new Error("Error al obtener registro")
+      }
+      const record = await response.json()
+      setEditRecord(record)
+      setEditFormData({
+        date: format(new Date(record.date), "yyyy-MM-dd"),
+        driverId: record.driverId.toString(),
+        startKm: record.startKm.toString(),
+        endKm: record.endKm.toString(),
+        cashAmount: record.cashAmount.toString(),
+        cardAmount: record.cardAmount.toString(),
+        invoiceAmount: record.invoiceAmount.toString(),
+        otherAmount: record.otherAmount.toString(),
+        fuelExpense: record.fuelExpense.toString(),
+        otherExpenses: record.otherExpenses.toString(),
+        otherExpenseNotes: record.otherExpenseNotes || "",
+        shiftStart: record.shiftStart || "",
+        shiftEnd: record.shiftEnd || "",
+        notes: record.notes || "",
+        imageUrl: record.imageUrl || "",
+      })
+      setIsEditDialogOpen(true)
+    } catch (error) {
+      console.error("Error:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo cargar el registro para editar",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setEditFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
+
+  const handleEditSelectChange = (name: string, value: string) => {
+    setEditFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
+
+  const calculateEditTotals = () => {
+    const startKm = Number.parseInt(editFormData.startKm) || 0
+    const endKm = Number.parseInt(editFormData.endKm) || 0
+    const totalKm = endKm - startKm
+
+    const cashAmount = Number.parseFloat(editFormData.cashAmount) || 0
+    const cardAmount = Number.parseFloat(editFormData.cardAmount) || 0
+    const invoiceAmount = Number.parseFloat(editFormData.invoiceAmount) || 0
+    const otherAmount = Number.parseFloat(editFormData.otherAmount) || 0
+    const totalAmount = cashAmount + cardAmount + invoiceAmount + otherAmount
+
+    const fuelExpense = Number.parseFloat(editFormData.fuelExpense) || 0
+    const otherExpenses = Number.parseFloat(editFormData.otherExpenses) || 0
+    const totalExpenses = fuelExpense + otherExpenses
+
+    const driverCommission = (totalAmount - totalExpenses) * 0.35
+    const netAmount = totalAmount - totalExpenses - driverCommission
+
+    return {
+      totalKm,
+      totalAmount,
+      totalExpenses,
+      driverCommission,
+      netAmount,
+    }
+  }
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!editRecord) return
+
+    const { totalKm, totalAmount, driverCommission, netAmount } = calculateEditTotals()
+
+    const updateData = {
+      date: editFormData.date,
+      driverId: Number.parseInt(editFormData.driverId),
+      startKm: Number.parseInt(editFormData.startKm),
+      endKm: Number.parseInt(editFormData.endKm),
+      totalKm,
+      cashAmount: Number.parseFloat(editFormData.cashAmount) || 0,
+      cardAmount: Number.parseFloat(editFormData.cardAmount) || 0,
+      invoiceAmount: Number.parseFloat(editFormData.invoiceAmount) || 0,
+      otherAmount: Number.parseFloat(editFormData.otherAmount) || 0,
+      totalAmount,
+      fuelExpense: Number.parseFloat(editFormData.fuelExpense) || 0,
+      otherExpenses: Number.parseFloat(editFormData.otherExpenses) || 0,
+      otherExpenseNotes: editFormData.otherExpenseNotes || null,
+      driverCommission,
+      netAmount,
+      notes: editFormData.notes || null,
+      shiftStart: editFormData.shiftStart || null,
+      shiftEnd: editFormData.shiftEnd || null,
+      imageUrl: editFormData.imageUrl || null,
+    }
+
+    try {
+      const response = await fetch(`/api/daily-records/${editRecord.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updateData),
+      })
+
+      if (!response.ok) {
+        throw new Error("Error al actualizar el registro")
+      }
+
+      toast({
+        title: "Éxito",
+        description: "Registro actualizado correctamente",
+      })
+
+      setIsEditDialogOpen(false)
+      setEditRecord(null)
+      fetchRecords()
+    } catch (error) {
+      console.error("Error:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el registro",
+        variant: "destructive",
+      })
+    }
   }
 
   const deleteRecord = async () => {
@@ -608,7 +765,7 @@ export default function AdminDailyRecordsPage() {
                           >
                             <Download className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" onClick={() => openEditDialog(record.id)}>
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="sm" onClick={() => confirmDelete(record.id)}>
@@ -1028,6 +1185,232 @@ export default function AdminDailyRecordsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Diálogo para editar registro */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Editar Jornada</DialogTitle>
+            <DialogDescription>Modifica los datos de la jornada laboral</DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleEditSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-date">Fecha</Label>
+                <Input
+                  id="edit-date"
+                  name="date"
+                  type="date"
+                  value={editFormData.date}
+                  onChange={handleEditInputChange}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-driverId">Conductor</Label>
+                <Select
+                  value={editFormData.driverId}
+                  onValueChange={(value) => handleEditSelectChange("driverId", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar conductor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.isArray(drivers) ? (
+                      drivers.map((driver) => (
+                        <SelectItem key={driver.id} value={driver.id.toString()}>
+                          {driver.username}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="error">Error al cargar conductores</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-shiftStart">Hora Inicio</Label>
+                <Input
+                  id="edit-shiftStart"
+                  name="shiftStart"
+                  type="time"
+                  value={editFormData.shiftStart}
+                  onChange={handleEditInputChange}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-shiftEnd">Hora Fin</Label>
+                <Input
+                  id="edit-shiftEnd"
+                  name="shiftEnd"
+                  type="time"
+                  value={editFormData.shiftEnd}
+                  onChange={handleEditInputChange}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-startKm">Kilómetros Inicio</Label>
+                <Input
+                  id="edit-startKm"
+                  name="startKm"
+                  type="number"
+                  value={editFormData.startKm}
+                  onChange={handleEditInputChange}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-endKm">Kilómetros Fin</Label>
+                <Input
+                  id="edit-endKm"
+                  name="endKm"
+                  type="number"
+                  value={editFormData.endKm}
+                  onChange={handleEditInputChange}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h3 className="font-medium mb-2">Ingresos</h3>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-cashAmount">Efectivo</Label>
+                    <Input
+                      id="edit-cashAmount"
+                      name="cashAmount"
+                      type="number"
+                      step="0.01"
+                      value={editFormData.cashAmount}
+                      onChange={handleEditInputChange}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-cardAmount">Tarjeta</Label>
+                    <Input
+                      id="edit-cardAmount"
+                      name="cardAmount"
+                      type="number"
+                      step="0.01"
+                      value={editFormData.cardAmount}
+                      onChange={handleEditInputChange}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-invoiceAmount">Facturación</Label>
+                    <Input
+                      id="edit-invoiceAmount"
+                      name="invoiceAmount"
+                      type="number"
+                      step="0.01"
+                      value={editFormData.invoiceAmount}
+                      onChange={handleEditInputChange}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-otherAmount">Otros Ingresos</Label>
+                    <Input
+                      id="edit-otherAmount"
+                      name="otherAmount"
+                      type="number"
+                      step="0.01"
+                      value={editFormData.otherAmount}
+                      onChange={handleEditInputChange}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="font-medium mb-2">Gastos</h3>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-fuelExpense">Gasolina</Label>
+                    <Input
+                      id="edit-fuelExpense"
+                      name="fuelExpense"
+                      type="number"
+                      step="0.01"
+                      value={editFormData.fuelExpense}
+                      onChange={handleEditInputChange}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-otherExpenses">Otros Gastos</Label>
+                    <Input
+                      id="edit-otherExpenses"
+                      name="otherExpenses"
+                      type="number"
+                      step="0.01"
+                      value={editFormData.otherExpenses}
+                      onChange={handleEditInputChange}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-otherExpenseNotes">Concepto Otros Gastos</Label>
+                    <Input
+                      id="edit-otherExpenseNotes"
+                      name="otherExpenseNotes"
+                      value={editFormData.otherExpenseNotes}
+                      onChange={handleEditInputChange}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-notes">Notas Adicionales</Label>
+              <Input id="edit-notes" name="notes" value={editFormData.notes} onChange={handleEditInputChange} />
+            </div>
+
+            <div className="bg-muted p-4 rounded-md">
+              <h3 className="font-medium mb-2">Resumen Calculado</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Kilómetros</p>
+                  <p className="font-medium">{calculateEditTotals().totalKm} km</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Ingresos</p>
+                  <p className="font-medium">{formatCurrency(calculateEditTotals().totalAmount)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Comisión Conductor</p>
+                  <p className="font-medium">{formatCurrency(calculateEditTotals().driverCommission)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Neto Empresa</p>
+                  <p className="font-medium">{formatCurrency(calculateEditTotals().netAmount)}</p>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit">Guardar Cambios</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
+
