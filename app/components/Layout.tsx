@@ -7,6 +7,7 @@ import { signOut, useSession } from "next-auth/react"
 import { Menu, X, Home, Clock, FileText, Car, Users, LogOut, BarChart, Calculator, ArrowLeft } from "lucide-react"
 import { useState, useEffect } from "react"
 import { Button } from "../../components/ui/button"
+import { NotificationSystem } from "../../components/notification-system"
 
 interface LayoutProps {
   children: React.ReactNode
@@ -100,35 +101,40 @@ const Layout: React.FC<LayoutProps> = ({ children, title = "Taxi Cash Register" 
             <h1 className="text-xl md:text-2xl font-bold truncate">{title}</h1>
           </div>
 
-          {/* Mobile menu button */}
-          <button
-            className="md:hidden text-white focus:outline-none"
-            onClick={toggleMenu}
-            aria-label={isMenuOpen ? "Cerrar menú" : "Abrir menú"}
-          >
-            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+          <div className="flex items-center space-x-2">
+            {/* Sistema de notificaciones */}
+            <NotificationSystem />
 
-          {/* Desktop navigation */}
-          <nav className="hidden md:block">
-            <ul className="flex space-x-4">
-              {menuItems.slice(0, 4).map((item) => (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={`hover:text-blue-400 ${pathname === item.href ? "text-blue-400" : ""}`}
-                  >
-                    {item.label}
-                  </Link>
+            {/* Mobile menu button */}
+            <button
+              className="md:hidden text-white focus:outline-none"
+              onClick={toggleMenu}
+              aria-label={isMenuOpen ? "Cerrar menú" : "Abrir menú"}
+            >
+              {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+
+            {/* Desktop navigation */}
+            <nav className="hidden md:block">
+              <ul className="flex space-x-4">
+                {menuItems.slice(0, 4).map((item) => (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className={`hover:text-blue-400 ${pathname === item.href ? "text-blue-400" : ""}`}
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                ))}
+                <li>
+                  <button onClick={handleSignOut} className="hover:text-blue-400">
+                    Cerrar Sesión
+                  </button>
                 </li>
-              ))}
-              <li>
-                <button onClick={handleSignOut} className="hover:text-blue-400">
-                  Cerrar Sesión
-                </button>
-              </li>
-            </ul>
-          </nav>
+              </ul>
+            </nav>
+          </div>
         </div>
 
         {/* Mobile navigation */}
