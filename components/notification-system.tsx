@@ -1,9 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Bell, X, CheckCircle, AlertTriangle, Info } from "lucide-react"
+import { useSession } from "next-auth/react"
+import { Bell, X, Check } from "lucide-react"
 import { Button } from "./ui/button"
-import { Card, CardContent } from "./ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
 import { Badge } from "./ui/badge"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
@@ -19,61 +20,74 @@ interface Notification {
 }
 
 export function NotificationSystem() {
+  const { data: session } = useSession()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    fetchNotifications()
-    // Polling cada 30 segundos
-    const interval = setInterval(fetchNotifications, 30000)
-    return () => clearInterval(interval)
-  }, [])
+    if (session) {
+      fetchNotifications()
+      // Actualizar cada 30 segundos
+      const interval = setInterval(fetchNotifications, 30000)
+      return () => clearInterval(interval)
+    }
+  }, [session])
 
   const fetchNotifications = async () => {
     try {
+      setLoading(true)
       const response = await fetch("/api/notifications")
       if (response.ok) {
         const data = await response.json()
-        setNotifications(data.notifications)
-        setUnreadCount(data.unread)
+        setNotifications(data.notifications || [])
+        setUnreadCount(data.unread || 0)
       }
     } catch (error) {
       console.error("Error al obtener notificaciones:", error)
+    } finally {
+      setLoading(false)
     }
   }
 
   const markAsRead = async (notificationId: string) => {
     try {
-      await fetch("/api/notifications", {
+      const response = await fetch("/api/notifications", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notificationId, read: true }),
       })
 
-      setNotifications((prev) => prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n)))
-      setUnreadCount((prev) => Math.max(0, prev - 1))
+      if (response.ok) {
+        setNotifications((prev) => prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n)))
+        setUnreadCount((prev) => Math.max(0, prev - 1))
+      }
     } catch (error) {
-      console.error("Error al marcar notificación:", error)
+      console.error("Error al marcar notificación como leída:", error)
     }
   }
 
-  const getIcon = (type: string) => {
+  const getNotificationIcon = (type: string) => {
     switch (type) {
       case "expense_generated":
-        return <AlertTriangle className="h-4 w-4 text-orange-500" />
+        return "💰"
       case "record_created":
-        return <CheckCircle className="h-4 w-4 text-green-500" />
+        return "📝"
       case "image_missing":
-        return <AlertTriangle className="h-4 w-4 text-red-500" />
+        return "⚠️"
+      case "balance_alert":
+        return "📊"
       default:
-        return <Info className="h-4 w-4 text-blue-500" />
+        return "🔔"
     }
   }
+
+  if (!session) return null
 
   return (
     <div className="relative">
-      <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)} className="relative">
+      <Button variant="ghost" size="sm" onClick={() => setIsOpen(!isOpen)} className="relative">
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
           <Badge
@@ -86,47 +100,73 @@ export function NotificationSystem() {
       </Button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto bg-white border rounded-lg shadow-lg z-50">
-          <div className="p-3 border-b flex justify-between items-center">
-            <h3 className="font-medium text-gray-900">Notificaciones</h3>
-            <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <div className="max-h-80 overflow-y-auto">
-            {notifications.length === 0 ? (
-              <div className="p-4 text-center text-muted-foreground">No hay notificaciones</div>
-            ) : (
-              notifications.map((notification) => (
-                <Card
-                  key={notification.id}
-                  className={`m-2 cursor-pointer transition-colors ${
-                    !notification.read ? "bg-blue-50 border-blue-200" : ""
-                  }`}
-                  onClick={() => !notification.read && markAsRead(notification.id)}
-                >
-                  <CardContent className="p-3">
-                    <div className="flex items-start space-x-3">
-                      {getIcon(notification.type)}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start">
-                          <h4 className="text-sm font-medium truncate text-gray-900">{notification.title}</h4>
-                          {!notification.read && (
-                            <div className="w-2 h-2 bg-blue-500 rounded-full ml-2 flex-shrink-0" />
-                          )}
+        <div className="absolute right-0 top-full mt-2 w-80 z-50">
+          <Card className="shadow-lg">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Notificaciones</CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => setIsOpen(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              {unreadCount > 0 && (
+                <CardDescription>
+                  Tienes {unreadCount} notificación{unreadCount !== 1 ? "es" : ""} sin leer
+                </CardDescription>
+              )}
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="max-h-96 overflow-y-auto">
+                {loading ? (
+                  <div className="p-4 text-center text-muted-foreground">Cargando notificaciones...</div>
+                ) : notifications.length === 0 ? (
+                  <div className="p-4 text-center text-muted-foreground">No hay notificaciones</div>
+                ) : (
+                  notifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={`p-4 border-b last:border-b-0 hover:bg-muted/50 cursor-pointer ${
+                        !notification.read ? "bg-blue-50/50" : ""
+                      }`}
+                      onClick={() => !notification.read && markAsRead(notification.id)}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className="text-lg">{getNotificationIcon(notification.type)}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium truncate">{notification.title}</p>
+                            {!notification.read && <div className="w-2 h-2 bg-blue-500 rounded-full ml-2" />}
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">{notification.message}</p>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            {format(new Date(notification.date), "dd/MM/yyyy HH:mm", {
+                              locale: es,
+                            })}
+                          </p>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">{notification.message}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {format(new Date(notification.date), "dd/MM/yyyy HH:mm", { locale: es })}
-                        </p>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
+                  ))
+                )}
+              </div>
+              {notifications.length > 0 && (
+                <div className="p-3 border-t">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      // Marcar todas como leídas
+                      notifications.filter((n) => !n.read).forEach((n) => markAsRead(n.id))
+                    }}
+                  >
+                    <Check className="h-4 w-4 mr-2" />
+                    Marcar todas como leídas
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

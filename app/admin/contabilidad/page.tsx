@@ -36,6 +36,8 @@ import {
   Plus,
   ArrowLeft,
   Loader2,
+  RefreshCw,
+  AlertTriangle,
 } from "lucide-react"
 import Link from "next/link"
 import {
@@ -52,8 +54,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { DateFilter } from "../../../components/date-filter"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { DatabaseStatus } from "../../../components/database-status"
+import { NotificationSystem } from "../../../components/notification-system"
 import { toast } from "../../../components/ui/use-toast"
-
+import { Checkbox } from "../../../components/ui/checkbox"
+import { Textarea } from "../../../components/ui/textarea"
 
 // Categorías que consideramos como gastos fijos
 const FIXED_EXPENSE_CATEGORIES = [
@@ -87,12 +91,15 @@ export default function ContabilidadPage() {
     description: "",
     amount: "",
     notes: "",
+    isRecurring: false,
+    frequency: "",
   })
 
   // Estados para almacenar los datos
   const [dailyRecords, setDailyRecords] = useState<any[]>([])
   const [expenses, setExpenses] = useState<any[]>([])
   const [payrolls, setPayrolls] = useState<any[]>([])
+  const [balance, setBalance] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -140,6 +147,14 @@ export default function ContabilidadPage() {
       console.log(`Nóminas cargadas: ${payrollsData.length}`)
       setPayrolls(payrollsData)
 
+      // Cargar balance
+      const balanceResponse = await fetch(`/api/balance?month=${fromDateStr}`)
+      if (balanceResponse.ok) {
+        const balanceData = await balanceResponse.json()
+        console.log("Balance cargado:", balanceData)
+        setBalance(balanceData)
+      }
+
       setLoading(false)
     } catch (err: any) {
       console.error("Error al cargar datos:", err)
@@ -154,6 +169,47 @@ export default function ContabilidadPage() {
       fetchData()
     }
   }, [session, fetchData])
+
+  // Función para generar gastos recurrentes
+  const generateRecurringExpenses = async () => {
+    try {
+      const response = await fetch("/api/expenses/generate-recurring", {
+        method: "POST",
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        toast({
+          title: "Gastos recurrentes generados",
+          description: `Se generaron ${data.generated} gastos recurrentes automáticamente.`,
+        })
+
+        // Crear notificación
+        await fetch("/api/notifications", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "expense_generated",
+            title: "Gastos Recurrentes Generados",
+            message: `Se generaron ${data.generated} gastos recurrentes automáticamente`,
+            data: { count: data.generated },
+          }),
+        })
+
+        // Recargar datos
+        fetchData()
+      } else {
+        throw new Error("Error al generar gastos recurrentes")
+      }
+    } catch (error) {
+      console.error("Error:", error)
+      toast({
+        title: "Error",
+        description: "No se pudieron generar los gastos recurrentes",
+        variant: "destructive",
+      })
+    }
+  }
 
   // Mutation para añadir un nuevo gasto
   const addExpenseMutation = useMutation({
@@ -178,12 +234,24 @@ export default function ContabilidadPage() {
       console.log("Respuesta del servidor:", data)
       return data
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       // Mostrar mensaje de éxito
       toast({
         title: "Gasto creado",
         description: `Se ha creado el gasto de ${formatCurrency(data.amount)} correctamente.`,
         variant: "default",
+      })
+
+      // Crear notificación
+      await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "expense_created",
+          title: "Nuevo Gasto Registrado",
+          message: `Se registró un gasto de ${formatCurrency(data.amount)} en ${data.category}`,
+          data: { amount: data.amount, category: data.category },
+        }),
       })
 
       // Recargar datos
@@ -197,6 +265,8 @@ export default function ContabilidadPage() {
         description: "",
         amount: "",
         notes: "",
+        isRecurring: false,
+        frequency: "",
       })
     },
     onError: (error) => {
@@ -216,13 +286,17 @@ export default function ContabilidadPage() {
     setToDate(range.to)
   }, [])
 
-  const handleExpenseInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleExpenseInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setExpenseFormData((prev) => ({ ...prev, [name]: value }))
   }
 
   const handleExpenseSelectChange = (name: string, value: string) => {
     setExpenseFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleExpenseCheckboxChange = (checked: boolean) => {
+    setExpenseFormData((prev) => ({ ...prev, isRecurring: checked }))
   }
 
   const handleAddExpense = async () => {
@@ -246,6 +320,15 @@ export default function ContabilidadPage() {
         return
       }
 
+      if (expenseFormData.isRecurring && !expenseFormData.frequency) {
+        toast({
+          title: "Frecuencia requerida",
+          description: "Por favor, selecciona la frecuencia para gastos recurrentes",
+          variant: "destructive",
+        })
+        return
+      }
+
       // Use the mutation to add the expense
       addExpenseMutation.mutate({
         date: expenseFormData.date,
@@ -254,6 +337,11 @@ export default function ContabilidadPage() {
         amount,
         notes: expenseFormData.notes || null,
         status: "approved", // Aprobamos automáticamente
+        isRecurring: expenseFormData.isRecurring,
+        frequency: expenseFormData.isRecurring ? expenseFormData.frequency : null,
+        nextDueDate: expenseFormData.isRecurring
+          ? format(new Date(new Date(expenseFormData.date).getTime() + 30 * 24 * 60 * 60 * 1000), "yyyy-MM-dd")
+          : null,
       })
     } catch (error) {
       console.error("Error:", error)
@@ -473,12 +561,38 @@ export default function ContabilidadPage() {
           </Button>
           <h1 className="text-2xl md:text-3xl font-bold">Contabilidad</h1>
         </div>
+
+        {/* Sistema de notificaciones */}
+        <div className="flex items-center space-x-2">
+          <NotificationSystem />
+          <Button variant="outline" size="sm" onClick={generateRecurringExpenses}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Generar Gastos Recurrentes
+          </Button>
+        </div>
       </div>
 
       {/* Componente de estado de la base de datos */}
       <div className="mb-6">
         <DatabaseStatus />
       </div>
+
+      {/* Alertas del balance */}
+      {balance?.alerts && balance.alerts.length > 0 && (
+        <div className="mb-6 space-y-2">
+          {balance.alerts.map((alert: any, index: number) => (
+            <div
+              key={index}
+              className={`p-3 rounded-lg flex items-center space-x-2 ${
+                alert.type === "danger" ? "bg-red-50 text-red-700" : "bg-yellow-50 text-yellow-700"
+              }`}
+            >
+              <AlertTriangle className="h-4 w-4" />
+              <span>{alert.message}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md mb-6">
         <h2 className="text-lg font-medium mb-2">Filtrar por fecha</h2>
@@ -863,6 +977,7 @@ export default function ContabilidadPage() {
                         <TableHead>Categoría</TableHead>
                         <TableHead>Descripción</TableHead>
                         <TableHead>Importe</TableHead>
+                        <TableHead>Recurrente</TableHead>
                         <TableHead>Estado</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -873,6 +988,23 @@ export default function ContabilidadPage() {
                           <TableCell>{expense.category}</TableCell>
                           <TableCell>{expense.description}</TableCell>
                           <TableCell>{formatCurrency(expense.amount)}</TableCell>
+                          <TableCell>
+                            {expense.isRecurring ? (
+                              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                                {expense.frequency === "monthly"
+                                  ? "Mensual"
+                                  : expense.frequency === "quarterly"
+                                    ? "Trimestral"
+                                    : expense.frequency === "biannual"
+                                      ? "Semestral"
+                                      : expense.frequency === "annual"
+                                        ? "Anual"
+                                        : "Sí"}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">No</span>
+                            )}
+                          </TableCell>
                           <TableCell>
                             <span
                               className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -916,11 +1048,9 @@ export default function ContabilidadPage() {
                   <Download className="h-4 w-4 mr-2" />
                   Exportar
                 </Button>
-                <Button asChild>
-                  <Link href="/admin/gastos-fijos">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Gestionar Gastos Fijos
-                  </Link>
+                <Button onClick={() => setIsAddExpenseDialogOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nuevo Gasto Fijo
                 </Button>
               </div>
             </CardHeader>
@@ -974,6 +1104,7 @@ export default function ContabilidadPage() {
                     <TableHead>Categoría</TableHead>
                     <TableHead>Descripción</TableHead>
                     <TableHead>Importe</TableHead>
+                    <TableHead>Recurrente</TableHead>
                     <TableHead>Estado</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -984,6 +1115,23 @@ export default function ContabilidadPage() {
                       <TableCell>{expense.category}</TableCell>
                       <TableCell>{expense.description}</TableCell>
                       <TableCell>{formatCurrency(expense.amount)}</TableCell>
+                      <TableCell>
+                        {expense.isRecurring ? (
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                            {expense.frequency === "monthly"
+                              ? "Mensual"
+                              : expense.frequency === "quarterly"
+                                ? "Trimestral"
+                                : expense.frequency === "biannual"
+                                  ? "Semestral"
+                                  : expense.frequency === "annual"
+                                    ? "Anual"
+                                    : "Sí"}
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">No</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <span
                           className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -1273,6 +1421,9 @@ export default function ContabilidadPage() {
                   <SelectItem value="seguros">Seguros</SelectItem>
                   <SelectItem value="impuestos">Impuestos</SelectItem>
                   <SelectItem value="servicios">Servicios</SelectItem>
+                  <SelectItem value="Nóminas">Nóminas</SelectItem>
+                  <SelectItem value="Seguridad Social">Seguridad Social</SelectItem>
+                  <SelectItem value="Cuota Autónomo">Cuota Autónomo</SelectItem>
                   <SelectItem value="Otros">Otros</SelectItem>
                 </SelectContent>
               </Select>
@@ -1300,13 +1451,41 @@ export default function ContabilidadPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="expense-notes">Notas</Label>
-              <Input
+              <Textarea
                 id="expense-notes"
                 name="notes"
                 value={expenseFormData.notes}
                 onChange={handleExpenseInputChange}
+                rows={3}
               />
             </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="expense-recurring"
+                checked={expenseFormData.isRecurring}
+                onCheckedChange={handleExpenseCheckboxChange}
+              />
+              <Label htmlFor="expense-recurring">Gasto recurrente</Label>
+            </div>
+            {expenseFormData.isRecurring && (
+              <div className="space-y-2">
+                <Label htmlFor="expense-frequency">Frecuencia *</Label>
+                <Select
+                  value={expenseFormData.frequency}
+                  onValueChange={(value) => handleExpenseSelectChange("frequency", value)}
+                >
+                  <SelectTrigger id="expense-frequency">
+                    <SelectValue placeholder="Selecciona la frecuencia" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="monthly">Mensual</SelectItem>
+                    <SelectItem value="quarterly">Trimestral</SelectItem>
+                    <SelectItem value="biannual">Semestral</SelectItem>
+                    <SelectItem value="annual">Anual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddExpenseDialogOpen(false)}>
@@ -1328,4 +1507,3 @@ export default function ContabilidadPage() {
     </div>
   )
 }
-
