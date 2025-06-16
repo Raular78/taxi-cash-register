@@ -320,6 +320,12 @@ export default function ConductorDashboard() {
                 Ver Registros
               </Link>
             </Button>
+            <Button asChild variant="outline" className="w-full sm:w-auto">
+              <Link href="/conductor/nominas">
+                <Euro className="h-4 w-4 mr-2" />
+                Mis Nóminas
+              </Link>
+            </Button>
             <Button asChild className="w-full sm:w-auto">
               <Link href="/conductor/nuevo-registro">
                 <Plus className="h-4 w-4 mr-2" />
@@ -694,6 +700,15 @@ export default function ConductorDashboard() {
                         </div>
                       </div>
                     </div>
+                  </div>
+
+                  <div className="mt-3 flex justify-center">
+                    <Button asChild variant="outline" size="sm">
+                      <Link href="/conductor/nominas">
+                        <Euro className="h-4 w-4 mr-2" />
+                        Ver Todas las Nóminas
+                      </Link>
+                    </Button>
                   </div>
 
                   <div className="mt-6 p-4 bg-muted rounded-lg">
