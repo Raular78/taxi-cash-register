@@ -1,53 +1,50 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { put } from "@vercel/blob"
 import { getServerSession } from "next-auth"
-import { authOptions } from "../../auth/options"
-import { writeFile, mkdir } from "fs/promises"
-import path from "path"
+import { authOptions } from "../../../lib/auth"
 
 export async function POST(request: NextRequest) {
   try {
-    // Verificar autenticación
     const session = await getServerSession(authOptions)
-    if (!session) {
+    if (!session || session.user.role !== "admin") {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    // Procesar el archivo
     const formData = await request.formData()
     const file = formData.get("file") as File
 
     if (!file) {
-      return NextResponse.json({ error: "No se ha proporcionado ningún archivo" }, { status: 400 })
+      return NextResponse.json({ error: "No se proporcionó archivo" }, { status: 400 })
     }
 
-    // Verificar que el archivo sea un PDF
+    // Validar que sea un PDF
     if (file.type !== "application/pdf") {
       return NextResponse.json({ error: "El archivo debe ser un PDF" }, { status: 400 })
     }
 
-    // Crear directorio si no existe
-    const uploadDir = path.join(process.cwd(), "public", "uploads", "payrolls")
-    try {
-      await mkdir(uploadDir, { recursive: true })
-    } catch (error) {
-      console.error("Error al crear directorio:", error)
+    // Validar tamaño (máximo 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      return NextResponse.json({ error: "El archivo es demasiado grande (máximo 10MB)" }, { status: 400 })
     }
 
-    // Generar nombre de archivo único
-    const timestamp = Date.now()
-    const fileName = `nomina_${timestamp}_${file.name.replace(/\s+/g, "_")}`
-    const filePath = path.join(uploadDir, fileName)
+    // Generar nombre único para el archivo
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
+    const filename = `payroll-${timestamp}-${file.name}`
 
-    // Guardar archivo
-    const buffer = Buffer.from(await file.arrayBuffer())
-    await writeFile(filePath, buffer)
+    // Subir a Vercel Blob
+    const blob = await put(filename, file, {
+      access: "public",
+      addRandomSuffix: true,
+    })
 
-    // Generar URL relativa
-    const fileUrl = `/uploads/payrolls/${fileName}`
+    console.log("PDF de nómina subido:", blob.url)
 
-    return NextResponse.json({ fileUrl })
+    return NextResponse.json({
+      fileUrl: blob.url,
+      filename: filename,
+    })
   } catch (error) {
-    console.error("Error al subir archivo:", error)
+    console.error("Error al subir PDF de nómina:", error)
     return NextResponse.json({ error: "Error al subir archivo" }, { status: 500 })
   }
 }

@@ -124,40 +124,121 @@ export default function AdminNominas() {
     }
   }
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true)
+  // Agregar después de handleSalarySubmit
+  const updatePayrollStatus = async (payrollId: number, newStatus: string) => {
+    try {
+      const response = await fetch(`/api/payrolls/${payrollId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: newStatus,
+        }),
+      })
 
-        // Obtener configuración de nómina base
-        await fetchBaseSalaryConfig()
-
-        // Obtener usuarios (conductores)
-        const usersResponse = await fetch("/api/users?role=driver")
-        if (!usersResponse.ok) {
-          throw new Error("Error al cargar conductores")
-        }
-        const usersData = await usersResponse.json()
-        setUsers(usersData || [])
-
-        // Obtener nóminas
-        const payrollsResponse = await fetch("/api/payrolls")
-        if (!payrollsResponse.ok) {
-          // Si la API no existe aún, usamos datos de ejemplo
-          console.warn("API de nóminas no implementada, usando datos de ejemplo")
-          setPayrolls([])
-          return
-        }
-        const payrollsData = await payrollsResponse.json()
-        setPayrolls(payrollsData || [])
-      } catch (err) {
-        console.warn("Error fetching payrolls, using empty array:", err)
-        setPayrolls([])
-      } finally {
-        setIsLoading(false)
+      if (!response.ok) {
+        throw new Error("Error al actualizar estado")
       }
-    }
 
+      toast({
+        title: "Éxito",
+        description: `Nómina marcada como ${newStatus === "paid" ? "pagada" : "pendiente"}`,
+      })
+
+      // Recargar datos
+      fetchData()
+    } catch (error) {
+      console.error("Error:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el estado",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Agregar función para subir PDF a nómina existente
+  const uploadPDFToPayroll = async (payrollId: number, file: File) => {
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const uploadResponse = await fetch("/api/upload/payroll-pdf", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!uploadResponse.ok) {
+        throw new Error("Error al subir PDF")
+      }
+
+      const { fileUrl } = await uploadResponse.json()
+
+      const updateResponse = await fetch(`/api/payrolls/${payrollId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          pdfUrl: fileUrl,
+        }),
+      })
+
+      if (!updateResponse.ok) {
+        throw new Error("Error al actualizar nómina")
+      }
+
+      toast({
+        title: "Éxito",
+        description: "PDF subido correctamente",
+      })
+
+      fetchData()
+    } catch (error) {
+      console.error("Error:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo subir el PDF",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const fetchData = async () => {
+    try {
+      setIsLoading(true)
+
+      // Obtener configuración de nómina base
+      await fetchBaseSalaryConfig()
+
+      // Obtener usuarios (conductores)
+      const usersResponse = await fetch("/api/users?role=driver")
+      if (!usersResponse.ok) {
+        throw new Error("Error al cargar conductores")
+      }
+      const usersData = await usersResponse.json()
+      setUsers(usersData || [])
+
+      // Obtener nóminas
+      const payrollsResponse = await fetch("/api/payrolls")
+      if (!payrollsResponse.ok) {
+        // Si la API no existe aún, usamos datos de ejemplo
+        console.warn("API de nóminas no implementada, usando datos de ejemplo")
+        setPayrolls([])
+        return
+      }
+      const payrollsData = await payrollsResponse.json()
+      setPayrolls(payrollsData || [])
+    } catch (err) {
+      console.warn("Error fetching payrolls, using empty array:", err)
+      setPayrolls([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
     fetchData()
   }, [])
 
@@ -364,9 +445,18 @@ export default function AdminNominas() {
                     <TableCell>{formatCurrency(payroll.baseSalary + payroll.commissions + payroll.bonuses)}</TableCell>
                     <TableCell>{formatCurrency(payroll.netAmount)}</TableCell>
                     <TableCell>
-                      <Badge variant={payroll.status === "paid" ? "default" : "secondary"}>
-                        {payroll.status === "paid" ? "Pagada" : "Pendiente"}
-                      </Badge>
+                      <Select
+                        value={payroll.status}
+                        onValueChange={(newStatus) => updatePayrollStatus(payroll.id, newStatus)}
+                      >
+                        <SelectTrigger className="w-24">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pendiente</SelectItem>
+                          <SelectItem value="paid">Pagada</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell>
                       {payroll.pdfUrl ? (
@@ -376,7 +466,27 @@ export default function AdminNominas() {
                           </Button>
                         </a>
                       ) : (
-                        <Badge variant="outline">Sin PDF</Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">Sin PDF</Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => document.getElementById(`pdf-upload-${payroll.id}`)?.click()}
+                            title="Subir PDF"
+                          >
+                            <Upload className="h-3 w-3" />
+                          </Button>
+                          <input
+                            id={`pdf-upload-${payroll.id}`}
+                            type="file"
+                            accept=".pdf"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) uploadPDFToPayroll(payroll.id, file)
+                            }}
+                          />
+                        </div>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
@@ -406,4 +516,3 @@ export default function AdminNominas() {
     </div>
   )
 }
-
