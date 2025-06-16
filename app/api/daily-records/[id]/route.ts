@@ -104,29 +104,87 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       console.log("PUT /api/daily-records/[id]: Acceso permitido para admin")
       const data = await request.json()
 
+      console.log("Datos recibidos para actualización:", data)
+
+      // 🔧 ARREGLO: Convertir correctamente los tipos antes de enviar a Prisma
+      const updateData: any = {}
+
+      // Convertir fecha si existe
+      if (data.date !== undefined) {
+        updateData.date = new Date(data.date)
+      }
+
+      // Convertir números enteros (kilómetros)
+      if (data.startKm !== undefined) {
+        updateData.startKm = typeof data.startKm === "string" ? Number.parseInt(data.startKm) : data.startKm
+      }
+      if (data.endKm !== undefined) {
+        updateData.endKm = typeof data.endKm === "string" ? Number.parseInt(data.endKm) : data.endKm
+      }
+      if (data.totalKm !== undefined) {
+        updateData.totalKm = typeof data.totalKm === "string" ? Number.parseInt(data.totalKm) : data.totalKm
+      }
+
+      // Convertir números decimales (importes)
+      if (data.cashAmount !== undefined) {
+        updateData.cashAmount =
+          typeof data.cashAmount === "string" ? Number.parseFloat(data.cashAmount) : data.cashAmount
+      }
+      if (data.cardAmount !== undefined) {
+        updateData.cardAmount =
+          typeof data.cardAmount === "string" ? Number.parseFloat(data.cardAmount) : data.cardAmount
+      }
+      if (data.invoiceAmount !== undefined) {
+        updateData.invoiceAmount =
+          typeof data.invoiceAmount === "string" ? Number.parseFloat(data.invoiceAmount) : data.invoiceAmount
+      }
+      if (data.otherAmount !== undefined) {
+        updateData.otherAmount =
+          typeof data.otherAmount === "string" ? Number.parseFloat(data.otherAmount) : data.otherAmount
+      }
+      if (data.totalAmount !== undefined) {
+        updateData.totalAmount =
+          typeof data.totalAmount === "string" ? Number.parseFloat(data.totalAmount) : data.totalAmount
+      }
+      if (data.fuelExpense !== undefined) {
+        updateData.fuelExpense =
+          typeof data.fuelExpense === "string" ? Number.parseFloat(data.fuelExpense) : data.fuelExpense
+      }
+      if (data.otherExpenses !== undefined) {
+        updateData.otherExpenses =
+          typeof data.otherExpenses === "string" ? Number.parseFloat(data.otherExpenses) : data.otherExpenses
+      }
+      if (data.driverCommission !== undefined) {
+        updateData.driverCommission =
+          typeof data.driverCommission === "string" ? Number.parseFloat(data.driverCommission) : data.driverCommission
+      }
+      if (data.netAmount !== undefined) {
+        updateData.netAmount = typeof data.netAmount === "string" ? Number.parseFloat(data.netAmount) : data.netAmount
+      }
+
+      // Campos de texto (no necesitan conversión)
+      if (data.otherExpenseNotes !== undefined) {
+        updateData.otherExpenseNotes = data.otherExpenseNotes
+      }
+      if (data.notes !== undefined) {
+        updateData.notes = data.notes
+      }
+      if (data.shiftStart !== undefined) {
+        updateData.shiftStart = data.shiftStart
+      }
+      if (data.shiftEnd !== undefined) {
+        updateData.shiftEnd = data.shiftEnd
+      }
+      if (data.imageUrl !== undefined) {
+        updateData.imageUrl = data.imageUrl
+      }
+
+      console.log("Datos convertidos para Prisma:", updateData)
+
       // Actualizar el registro diario
       const updatedRecord = await prisma.dailyRecord.update({
         where: { id },
-        data: {
-          date: data.date ? new Date(data.date) : undefined,
-          startKm: data.startKm !== undefined ? data.startKm : undefined,
-          endKm: data.endKm !== undefined ? data.endKm : undefined,
-          totalKm: data.totalKm !== undefined ? data.totalKm : undefined,
-          cashAmount: data.cashAmount !== undefined ? data.cashAmount : undefined,
-          cardAmount: data.cardAmount !== undefined ? data.cardAmount : undefined,
-          invoiceAmount: data.invoiceAmount !== undefined ? data.invoiceAmount : undefined,
-          otherAmount: data.otherAmount !== undefined ? data.otherAmount : undefined,
-          totalAmount: data.totalAmount !== undefined ? data.totalAmount : undefined,
-          fuelExpense: data.fuelExpense !== undefined ? data.fuelExpense : undefined,
-          otherExpenses: data.otherExpenses !== undefined ? data.otherExpenses : undefined,
-          otherExpenseNotes: data.otherExpenseNotes !== undefined ? data.otherExpenseNotes : undefined,
-          driverCommission: data.driverCommission !== undefined ? data.driverCommission : undefined,
-          netAmount: data.netAmount !== undefined ? data.netAmount : undefined,
-          notes: data.notes !== undefined ? data.notes : undefined,
-          shiftStart: data.shiftStart !== undefined ? data.shiftStart : undefined,
-          shiftEnd: data.shiftEnd !== undefined ? data.shiftEnd : undefined,
-          imageUrl: data.imageUrl !== undefined ? data.imageUrl : undefined,
-        },
+        data: updateData,
       })
 
       return NextResponse.json(updatedRecord)
@@ -137,29 +195,87 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       console.log("PUT /api/daily-records/[id]: Acceso permitido para conductor propietario")
       const data = await request.json()
 
+      console.log("Datos recibidos para actualización (conductor):", data)
+
+      // 🔧 ARREGLO: Convertir correctamente los tipos antes de enviar a Prisma
+      const updateData: any = {}
+
+      // Convertir fecha si existe
+      if (data.date !== undefined) {
+        updateData.date = new Date(data.date)
+      }
+
+      // Convertir números enteros (kilómetros)
+      if (data.startKm !== undefined) {
+        updateData.startKm = typeof data.startKm === "string" ? Number.parseInt(data.startKm) : data.startKm
+      }
+      if (data.endKm !== undefined) {
+        updateData.endKm = typeof data.endKm === "string" ? Number.parseInt(data.endKm) : data.endKm
+      }
+      if (data.totalKm !== undefined) {
+        updateData.totalKm = typeof data.totalKm === "string" ? Number.parseInt(data.totalKm) : data.totalKm
+      }
+
+      // Convertir números decimales (importes)
+      if (data.cashAmount !== undefined) {
+        updateData.cashAmount =
+          typeof data.cashAmount === "string" ? Number.parseFloat(data.cashAmount) : data.cashAmount
+      }
+      if (data.cardAmount !== undefined) {
+        updateData.cardAmount =
+          typeof data.cardAmount === "string" ? Number.parseFloat(data.cardAmount) : data.cardAmount
+      }
+      if (data.invoiceAmount !== undefined) {
+        updateData.invoiceAmount =
+          typeof data.invoiceAmount === "string" ? Number.parseFloat(data.invoiceAmount) : data.invoiceAmount
+      }
+      if (data.otherAmount !== undefined) {
+        updateData.otherAmount =
+          typeof data.otherAmount === "string" ? Number.parseFloat(data.otherAmount) : data.otherAmount
+      }
+      if (data.totalAmount !== undefined) {
+        updateData.totalAmount =
+          typeof data.totalAmount === "string" ? Number.parseFloat(data.totalAmount) : data.totalAmount
+      }
+      if (data.fuelExpense !== undefined) {
+        updateData.fuelExpense =
+          typeof data.fuelExpense === "string" ? Number.parseFloat(data.fuelExpense) : data.fuelExpense
+      }
+      if (data.otherExpenses !== undefined) {
+        updateData.otherExpenses =
+          typeof data.otherExpenses === "string" ? Number.parseFloat(data.otherExpenses) : data.otherExpenses
+      }
+      if (data.driverCommission !== undefined) {
+        updateData.driverCommission =
+          typeof data.driverCommission === "string" ? Number.parseFloat(data.driverCommission) : data.driverCommission
+      }
+      if (data.netAmount !== undefined) {
+        updateData.netAmount = typeof data.netAmount === "string" ? Number.parseFloat(data.netAmount) : data.netAmount
+      }
+
+      // Campos de texto (no necesitan conversión)
+      if (data.otherExpenseNotes !== undefined) {
+        updateData.otherExpenseNotes = data.otherExpenseNotes
+      }
+      if (data.notes !== undefined) {
+        updateData.notes = data.notes
+      }
+      if (data.shiftStart !== undefined) {
+        updateData.shiftStart = data.shiftStart
+      }
+      if (data.shiftEnd !== undefined) {
+        updateData.shiftEnd = data.shiftEnd
+      }
+      if (data.imageUrl !== undefined) {
+        updateData.imageUrl = data.imageUrl
+      }
+
+      console.log("Datos convertidos para Prisma (conductor):", updateData)
+
       // Actualizar el registro diario
       const updatedRecord = await prisma.dailyRecord.update({
         where: { id },
-        data: {
-          date: data.date ? new Date(data.date) : undefined,
-          startKm: data.startKm !== undefined ? data.startKm : undefined,
-          endKm: data.endKm !== undefined ? data.endKm : undefined,
-          totalKm: data.totalKm !== undefined ? data.totalKm : undefined,
-          cashAmount: data.cashAmount !== undefined ? data.cashAmount : undefined,
-          cardAmount: data.cardAmount !== undefined ? data.cardAmount : undefined,
-          invoiceAmount: data.invoiceAmount !== undefined ? data.invoiceAmount : undefined,
-          otherAmount: data.otherAmount !== undefined ? data.otherAmount : undefined,
-          totalAmount: data.totalAmount !== undefined ? data.totalAmount : undefined,
-          fuelExpense: data.fuelExpense !== undefined ? data.fuelExpense : undefined,
-          otherExpenses: data.otherExpenses !== undefined ? data.otherExpenses : undefined,
-          otherExpenseNotes: data.otherExpenseNotes !== undefined ? data.otherExpenseNotes : undefined,
-          driverCommission: data.driverCommission !== undefined ? data.driverCommission : undefined,
-          netAmount: data.netAmount !== undefined ? data.netAmount : undefined,
-          notes: data.notes !== undefined ? data.notes : undefined,
-          shiftStart: data.shiftStart !== undefined ? data.shiftStart : undefined,
-          shiftEnd: data.shiftEnd !== undefined ? data.shiftEnd : undefined,
-          imageUrl: data.imageUrl !== undefined ? data.imageUrl : undefined,
-        },
+        data: updateData,
       })
 
       return NextResponse.json(updatedRecord)
