@@ -10,7 +10,19 @@ import { Button } from "@/components/ui/button"
 import { DateRangePicker } from "@/components/ui/date-range-picker"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/components/ui/use-toast"
-import { Euro, Fuel, TrendingUp, Plus, FileText, BarChart3, Clock, MapPin, AlertCircle, Download } from "lucide-react"
+import {
+  Euro,
+  Fuel,
+  TrendingUp,
+  Plus,
+  FileText,
+  BarChart3,
+  Clock,
+  MapPin,
+  AlertCircle,
+  Download,
+  Star,
+} from "lucide-react"
 import Link from "next/link"
 import TimeTracker from "@/app/components/TimeTracker"
 
@@ -42,6 +54,8 @@ interface WeeklyData {
   ingresos: number
   gastos: number
   comision: number
+  dias: number
+  kmTotal: number
 }
 
 interface Payroll {
@@ -210,19 +224,24 @@ export default function ConductorDashboard() {
 
   const processWeeklyData = (records: DailyRecord[]) => {
     try {
-      const weeklyMap = new Map<string, { ingresos: number; gastos: number; comision: number }>()
+      const weeklyMap = new Map<
+        string,
+        { ingresos: number; gastos: number; comision: number; dias: number; kmTotal: number }
+      >()
 
       records.forEach((record) => {
         const date = new Date(record.date)
         const weekStart = startOfWeek(date, { weekStartsOn: 1 })
         const weekKey = format(weekStart, "dd/MM", { locale: es })
 
-        const existing = weeklyMap.get(weekKey) || { ingresos: 0, gastos: 0, comision: 0 }
+        const existing = weeklyMap.get(weekKey) || { ingresos: 0, gastos: 0, comision: 0, dias: 0, kmTotal: 0 }
 
         weeklyMap.set(weekKey, {
           ingresos: existing.ingresos + (record.totalAmount || 0),
           gastos: existing.gastos + ((record.fuelExpense || 0) + (record.otherExpenses || 0)),
           comision: existing.comision + (record.driverCommission || 0),
+          dias: existing.dias + 1,
+          kmTotal: existing.kmTotal + (record.totalKm || 0),
         })
       })
 
@@ -278,6 +297,25 @@ export default function ConductorDashboard() {
     setDateRange(preset.range)
   }
 
+  // Calcular estadísticas del gráfico
+  const getChartStats = () => {
+    if (weeklyData.length === 0) return null
+
+    const bestWeek = weeklyData.reduce((best, current) => (current.comision > best.comision ? current : best))
+
+    const avgIncome = weeklyData.reduce((sum, week) => sum + week.ingresos, 0) / weeklyData.length
+    const avgCommission = weeklyData.reduce((sum, week) => sum + week.comision, 0) / weeklyData.length
+    const totalDays = weeklyData.reduce((sum, week) => sum + week.dias, 0)
+
+    return {
+      bestWeek,
+      avgIncome,
+      avgCommission,
+      totalDays,
+      avgDaysPerWeek: totalDays / weeklyData.length,
+    }
+  }
+
   // Si está cargando la sesión, mostrar un indicador de carga
   if (status === "loading") {
     return (
@@ -296,6 +334,7 @@ export default function ConductorDashboard() {
   }
 
   const totals = calculateTotals()
+  const chartStats = getChartStats()
 
   // Determinar el valor de la nómina y calcular el efectivo
   const nominaValue = payrollData?.found ? payrollData.payroll?.netAmount : payrollData?.defaultSalary || 1400
@@ -457,14 +496,14 @@ export default function ConductorDashboard() {
           </Card>
         </div>
 
-        {/* Gráfico de evolución semanal */}
+        {/* Gráfico de evolución semanal mejorado */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
               <BarChart3 className="h-5 w-5 mr-2" />
-              Evolución Semanal
+              Análisis Semanal
             </CardTitle>
-            <CardDescription>Ingresos, gastos y comisiones por semana</CardDescription>
+            <CardDescription>Evolución de ingresos, gastos y comisiones con estadísticas</CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -472,50 +511,101 @@ export default function ConductorDashboard() {
                 <Skeleton className="h-full w-full" />
               </div>
             ) : weeklyData.length > 0 ? (
-              <div className="h-64 w-full">
-                <div className="flex items-end justify-between h-full space-x-2">
-                  {weeklyData.map((week, index) => {
-                    const maxValue = Math.max(...weeklyData.map((w) => Math.max(w.ingresos, w.gastos, w.comision)))
-                    const ingresosHeight = maxValue > 0 ? (week.ingresos / maxValue) * 100 : 0
-                    const gastosHeight = maxValue > 0 ? (week.gastos / maxValue) * 100 : 0
-                    const comisionHeight = maxValue > 0 ? (week.comision / maxValue) * 100 : 0
-
-                    return (
-                      <div key={index} className="flex-1 flex flex-col items-center space-y-1">
-                        <div className="flex items-end space-x-1 h-48">
-                          <div
-                            className="bg-green-500 w-4 rounded-t"
-                            style={{ height: `${ingresosHeight}%` }}
-                            title={`Ingresos: ${formatCurrency(week.ingresos)}`}
-                          />
-                          <div
-                            className="bg-red-500 w-4 rounded-t"
-                            style={{ height: `${gastosHeight}%` }}
-                            title={`Gastos: ${formatCurrency(week.gastos)}`}
-                          />
-                          <div
-                            className="bg-blue-500 w-4 rounded-t"
-                            style={{ height: `${comisionHeight}%` }}
-                            title={`Comisión: ${formatCurrency(week.comision)}`}
-                          />
-                        </div>
-                        <span className="text-xs text-muted-foreground">{week.week}</span>
+              <div className="space-y-4">
+                {/* Estadísticas rápidas */}
+                {chartStats && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
+                    <div className="text-center">
+                      <div className="text-sm text-muted-foreground">Mejor Semana</div>
+                      <div className="font-semibold text-green-600 flex items-center justify-center">
+                        <Star className="h-3 w-3 mr-1" />
+                        {chartStats.bestWeek.week}
                       </div>
-                    )
-                  })}
-                </div>
-                <div className="flex justify-center mt-4 space-x-4 text-xs">
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-green-500 rounded mr-1" />
-                    Ingresos
+                      <div className="text-xs">{formatCurrency(chartStats.bestWeek.comision)}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-sm text-muted-foreground">Promedio Semanal</div>
+                      <div className="font-semibold">{formatCurrency(chartStats.avgCommission)}</div>
+                      <div className="text-xs text-muted-foreground">comisión</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-sm text-muted-foreground">Días Trabajados</div>
+                      <div className="font-semibold">{chartStats.totalDays}</div>
+                      <div className="text-xs text-muted-foreground">total</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-sm text-muted-foreground">Consistencia</div>
+                      <div className="font-semibold">{chartStats.avgDaysPerWeek.toFixed(1)}</div>
+                      <div className="text-xs text-muted-foreground">días/semana</div>
+                    </div>
                   </div>
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-red-500 rounded mr-1" />
-                    Gastos
+                )}
+
+                {/* Gráfico */}
+                <div className="h-64 w-full">
+                  <div className="flex items-end justify-between h-full space-x-2">
+                    {weeklyData.map((week, index) => {
+                      const maxValue = Math.max(...weeklyData.map((w) => Math.max(w.ingresos, w.gastos, w.comision)))
+                      const ingresosHeight = maxValue > 0 ? (week.ingresos / maxValue) * 100 : 0
+                      const gastosHeight = maxValue > 0 ? (week.gastos / maxValue) * 100 : 0
+                      const comisionHeight = maxValue > 0 ? (week.comision / maxValue) * 100 : 0
+                      const isBestWeek = chartStats?.bestWeek.week === week.week
+
+                      return (
+                        <div key={index} className="flex-1 flex flex-col items-center space-y-1">
+                          <div className="flex items-end space-x-1 h-48 relative">
+                            {isBestWeek && (
+                              <Star className="absolute -top-4 left-1/2 transform -translate-x-1/2 h-3 w-3 text-yellow-500" />
+                            )}
+                            <div
+                              className={`w-4 rounded-t transition-all hover:opacity-80 ${
+                                isBestWeek ? "bg-gradient-to-t from-green-600 to-green-400" : "bg-green-500"
+                              }`}
+                              style={{ height: `${ingresosHeight}%` }}
+                              title={`Ingresos: ${formatCurrency(week.ingresos)}`}
+                            />
+                            <div
+                              className={`w-4 rounded-t transition-all hover:opacity-80 ${
+                                isBestWeek ? "bg-gradient-to-t from-red-600 to-red-400" : "bg-red-500"
+                              }`}
+                              style={{ height: `${gastosHeight}%` }}
+                              title={`Gastos: ${formatCurrency(week.gastos)}`}
+                            />
+                            <div
+                              className={`w-4 rounded-t transition-all hover:opacity-80 ${
+                                isBestWeek ? "bg-gradient-to-t from-blue-600 to-blue-400" : "bg-blue-500"
+                              }`}
+                              style={{ height: `${comisionHeight}%` }}
+                              title={`Comisión: ${formatCurrency(week.comision)}`}
+                            />
+                          </div>
+                          <span
+                            className={`text-xs ${isBestWeek ? "font-semibold text-yellow-600" : "text-muted-foreground"}`}
+                          >
+                            {week.week}
+                          </span>
+                          <span className="text-xs text-muted-foreground">{week.dias}d</span>
+                        </div>
+                      )
+                    })}
                   </div>
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-blue-500 rounded mr-1" />
-                    Comisión
+                  <div className="flex justify-center mt-4 space-x-4 text-xs">
+                    <div className="flex items-center">
+                      <div className="w-3 h-3 bg-green-500 rounded mr-1" />
+                      Ingresos
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-3 h-3 bg-red-500 rounded mr-1" />
+                      Gastos
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-3 h-3 bg-blue-500 rounded mr-1" />
+                      Comisión
+                    </div>
+                    <div className="flex items-center">
+                      <Star className="h-3 w-3 text-yellow-500 mr-1" />
+                      Mejor semana
+                    </div>
                   </div>
                 </div>
               </div>
@@ -700,15 +790,6 @@ export default function ConductorDashboard() {
                         </div>
                       </div>
                     </div>
-                  </div>
-
-                  <div className="mt-3 flex justify-center">
-                    <Button asChild variant="outline" size="sm">
-                      <Link href="/conductor/nominas">
-                        <Euro className="h-4 w-4 mr-2" />
-                        Ver Todas las Nóminas
-                      </Link>
-                    </Button>
                   </div>
 
                   <div className="mt-6 p-4 bg-muted rounded-lg">
