@@ -15,6 +15,7 @@ import { Input } from "../../../components/ui/input"
 import { Badge } from "../../../components/ui/badge"
 import { Label } from "../../../components/ui/label"
 import { toast } from "../../../components/ui/use-toast"
+import BackToAdminButton from "../../../components/BackToAdminButton"
 
 interface Payroll {
   id: number
@@ -308,6 +309,8 @@ export default function AdminNominas() {
 
   return (
     <div className="container mx-auto p-4 space-y-6">
+      <BackToAdminButton />
+
       {/* Configuración de Nómina Base */}
       <Card>
         <CardHeader>
