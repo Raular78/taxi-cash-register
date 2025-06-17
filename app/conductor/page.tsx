@@ -556,72 +556,87 @@ export default function ConductorDashboard() {
 
                 {/* Gráfico mejorado */}
                 <div className="bg-gradient-to-b from-gray-50 to-white p-6 rounded-lg border">
-                  <div className="h-80 w-full">
-                    <div className="flex items-end justify-center h-full space-x-4 px-4">
+                  <div className="h-80 w-full relative">
+                    {/* Líneas de referencia */}
+                    <div className="absolute inset-0 flex flex-col justify-between py-4">
+                      {[100, 75, 50, 25, 0].map((percent) => (
+                        <div key={percent} className="border-t border-gray-200 border-dashed opacity-50" />
+                      ))}
+                    </div>
+
+                    {/* Barras del gráfico */}
+                    <div className="relative h-full flex items-end justify-center space-x-8 px-4">
                       {weeklyData.map((week, index) => {
                         const maxValue = Math.max(...weeklyData.map((w) => Math.max(w.ingresos, w.gastos, w.comision)))
-                        const ingresosHeight = maxValue > 0 ? Math.max((week.ingresos / maxValue) * 100, 2) : 2
-                        const gastosHeight = maxValue > 0 ? Math.max((week.gastos / maxValue) * 100, 2) : 2
-                        const comisionHeight = maxValue > 0 ? Math.max((week.comision / maxValue) * 100, 2) : 2
+                        const ingresosHeight = maxValue > 0 ? Math.max((week.ingresos / maxValue) * 85, 3) : 3
+                        const gastosHeight = maxValue > 0 ? Math.max((week.gastos / maxValue) * 85, 3) : 3
+                        const comisionHeight = maxValue > 0 ? Math.max((week.comision / maxValue) * 85, 3) : 3
                         const isBestWeek = chartStats?.bestWeek.week === week.week
 
                         return (
-                          <div key={index} className="flex flex-col items-center space-y-3 min-w-0 flex-1">
-                            <div className="flex items-end justify-center space-x-2 h-64 relative">
-                              {isBestWeek && (
-                                <div className="absolute -top-6 left-1/2 transform -translate-x-1/2">
-                                  <Star className="h-4 w-4 text-yellow-500 animate-pulse" />
-                                </div>
-                              )}
-
-                              {/* Barra de Ingresos */}
-                              <div className="flex flex-col items-center">
-                                <div
-                                  className={`w-6 rounded-t-md transition-all duration-300 hover:scale-105 cursor-pointer shadow-sm ${
-                                    isBestWeek
-                                      ? "bg-gradient-to-t from-green-600 via-green-500 to-green-400 shadow-green-200"
-                                      : "bg-gradient-to-t from-green-500 to-green-400 hover:from-green-600 hover:to-green-500"
-                                  }`}
-                                  style={{ height: `${ingresosHeight}%` }}
-                                  title={`Ingresos: ${formatCurrency(week.ingresos)}`}
-                                />
+                          <div key={index} className="flex flex-col items-center space-y-3 relative">
+                            {/* Estrella para mejor semana */}
+                            {isBestWeek && (
+                              <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 z-10">
+                                <Star className="h-5 w-5 text-yellow-500 animate-pulse drop-shadow-sm" />
                               </div>
+                            )}
+
+                            {/* Contenedor de barras */}
+                            <div className="flex items-end space-x-1 h-72">
+                              {/* Barra de Ingresos */}
+                              <div
+                                className={`w-8 rounded-t-lg transition-all duration-500 hover:scale-105 cursor-pointer shadow-lg ${
+                                  isBestWeek
+                                    ? "bg-gradient-to-t from-green-700 via-green-500 to-green-300 shadow-green-300"
+                                    : "bg-gradient-to-t from-green-600 to-green-400 hover:from-green-700 hover:to-green-500 shadow-green-200"
+                                }`}
+                                style={{
+                                  height: `${ingresosHeight}%`,
+                                  minHeight: "8px",
+                                }}
+                                title={`Ingresos: ${formatCurrency(week.ingresos)}`}
+                              />
 
                               {/* Barra de Gastos */}
-                              <div className="flex flex-col items-center">
-                                <div
-                                  className={`w-6 rounded-t-md transition-all duration-300 hover:scale-105 cursor-pointer shadow-sm ${
-                                    isBestWeek
-                                      ? "bg-gradient-to-t from-red-600 via-red-500 to-red-400 shadow-red-200"
-                                      : "bg-gradient-to-t from-red-500 to-red-400 hover:from-red-600 hover:to-red-500"
-                                  }`}
-                                  style={{ height: `${gastosHeight}%` }}
-                                  title={`Gastos: ${formatCurrency(week.gastos)}`}
-                                />
-                              </div>
+                              <div
+                                className={`w-8 rounded-t-lg transition-all duration-500 hover:scale-105 cursor-pointer shadow-lg ${
+                                  isBestWeek
+                                    ? "bg-gradient-to-t from-red-700 via-red-500 to-red-300 shadow-red-300"
+                                    : "bg-gradient-to-t from-red-600 to-red-400 hover:from-red-700 hover:to-red-500 shadow-red-200"
+                                }`}
+                                style={{
+                                  height: `${gastosHeight}%`,
+                                  minHeight: "8px",
+                                }}
+                                title={`Gastos: ${formatCurrency(week.gastos)}`}
+                              />
 
                               {/* Barra de Comisión */}
-                              <div className="flex flex-col items-center">
-                                <div
-                                  className={`w-6 rounded-t-md transition-all duration-300 hover:scale-105 cursor-pointer shadow-sm ${
-                                    isBestWeek
-                                      ? "bg-gradient-to-t from-blue-600 via-blue-500 to-blue-400 shadow-blue-200"
-                                      : "bg-gradient-to-t from-blue-500 to-blue-400 hover:from-blue-600 hover:to-blue-500"
-                                  }`}
-                                  style={{ height: `${comisionHeight}%` }}
-                                  title={`Comisión: ${formatCurrency(week.comision)}`}
-                                />
-                              </div>
+                              <div
+                                className={`w-8 rounded-t-lg transition-all duration-500 hover:scale-105 cursor-pointer shadow-lg ${
+                                  isBestWeek
+                                    ? "bg-gradient-to-t from-blue-700 via-blue-500 to-blue-300 shadow-blue-300"
+                                    : "bg-gradient-to-t from-blue-600 to-blue-400 hover:from-blue-700 hover:to-blue-500 shadow-blue-200"
+                                }`}
+                                style={{
+                                  height: `${comisionHeight}%`,
+                                  minHeight: "8px",
+                                }}
+                                title={`Comisión: ${formatCurrency(week.comision)}`}
+                              />
                             </div>
 
                             {/* Etiquetas de semana */}
                             <div className="text-center space-y-1">
                               <div
-                                className={`text-sm font-medium ${isBestWeek ? "text-yellow-700 font-semibold" : "text-gray-700"}`}
+                                className={`text-sm font-medium ${
+                                  isBestWeek ? "text-yellow-700 font-bold" : "text-gray-700"
+                                }`}
                               >
                                 {week.week}
                               </div>
-                              <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                              <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full border">
                                 {week.dias}d
                               </div>
                             </div>
@@ -632,17 +647,17 @@ export default function ConductorDashboard() {
                   </div>
 
                   {/* Leyenda mejorada */}
-                  <div className="flex justify-center items-center mt-6 space-x-6 text-sm">
+                  <div className="flex justify-center items-center mt-6 space-x-8 text-sm bg-white p-3 rounded-lg border shadow-sm">
                     <div className="flex items-center space-x-2">
-                      <div className="w-4 h-4 bg-gradient-to-r from-green-500 to-green-400 rounded shadow-sm" />
+                      <div className="w-4 h-4 bg-gradient-to-r from-green-600 to-green-400 rounded shadow-sm" />
                       <span className="font-medium text-gray-700">Ingresos</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <div className="w-4 h-4 bg-gradient-to-r from-red-500 to-red-400 rounded shadow-sm" />
+                      <div className="w-4 h-4 bg-gradient-to-r from-red-600 to-red-400 rounded shadow-sm" />
                       <span className="font-medium text-gray-700">Gastos</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <div className="w-4 h-4 bg-gradient-to-r from-blue-500 to-blue-400 rounded shadow-sm" />
+                      <div className="w-4 h-4 bg-gradient-to-r from-blue-600 to-blue-400 rounded shadow-sm" />
                       <span className="font-medium text-gray-700">Comisión</span>
                     </div>
                     <div className="flex items-center space-x-2">
