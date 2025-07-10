@@ -116,6 +116,8 @@ model Expense {
   receipt     String?   // URL o referencia al recibo
   notes       String?
   status      String    @default("pending") // pending, approved, rejected
+  isPaid      Boolean   @default(false)     // ✅ NUEVO: Indica si está pagado
+  paymentDate DateTime?                     // ✅ NUEVO: Fecha de pago
   isRecurring Boolean   @default(false)     // Indica si es un gasto recurrente
   frequency   String?                       // monthly, quarterly, biannual, annual
   nextDueDate DateTime?                     // Fecha del próximo vencimiento

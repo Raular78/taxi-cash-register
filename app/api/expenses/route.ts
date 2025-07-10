@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get("type")
     const category = searchParams.get("category")
     const status = searchParams.get("status")
+    const isPaid = searchParams.get("isPaid")
 
     const whereClause: any = {}
 
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
               "Seguros",
               "Impuestos",
               "Suministros",
-              "Taller", // ✅ AÑADIDO: Categoría taller
+              "Taller",
             ],
           },
         },
@@ -77,7 +78,7 @@ export async function GET(request: NextRequest) {
           "Seguros",
           "Impuestos",
           "Suministros",
-          "Taller", // ✅ AÑADIDO: Categoría taller
+          "Taller",
         ],
       }
     }
@@ -92,15 +93,36 @@ export async function GET(request: NextRequest) {
       whereClause.status = status
     }
 
-    try {
-      // Obtener gastos de la base de datos
-      const expenses = await prisma.expense.findMany({
-        where: whereClause,
-        orderBy: {
-          date: "desc",
+    // Filtrar por estado de pago
+    if (isPaid !== null && isPaid !== undefined) {
+      whereClause.isPaid = isPaid === "true"
+    }
+
+    // Obtener gastos de la base de datos
+    const expenses = await prisma.expense.findMany({
+      where: whereClause,
+      orderBy: {
+        date: "desc",
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+          },
         },
+      },
+    })
+
+    console.log(`Gastos encontrados en la base de datos: ${expenses.length}`)
+
+    // Intentar obtener también gastos de combustible si existen
+    let fuelExpenses = []
+    try {
+      fuelExpenses = await prisma.fuelExpense.findMany({
+        where: whereClause.date ? { date: whereClause.date } : {},
         include: {
-          user: {
+          driver: {
             select: {
               id: true,
               username: true,
@@ -109,102 +131,30 @@ export async function GET(request: NextRequest) {
         },
       })
 
-      console.log(`Gastos encontrados en la base de datos: ${expenses.length}`)
-
-      // Intentar obtener también gastos de combustible si existen
-      let fuelExpenses = []
-      try {
-        fuelExpenses = await prisma.fuelExpense.findMany({
-          where: whereClause.date ? { date: whereClause.date } : {},
-          include: {
-            driver: {
-              select: {
-                id: true,
-                username: true,
-              },
-            },
-          },
-        })
-
-        console.log(`Gastos de combustible encontrados: ${fuelExpenses.length}`)
-      } catch (fuelError) {
-        console.log("No se pudieron obtener gastos de combustible:", fuelError)
-      }
-
-      // Combinar todos los gastos
-      const allExpenses = [
-        ...expenses,
-        ...fuelExpenses.map((expense) => ({
-          id: `fuel-${expense.id}`,
-          date: expense.date,
-          category: "Combustible",
-          description: `Combustible - ${expense.liters}L`,
-          amount: expense.amount,
-          status: "approved",
-          isRecurring: false,
-          driver: expense.driver,
-          type: "fuel",
-        })),
-      ]
-
-      return NextResponse.json(allExpenses)
-    } catch (dbError) {
-      console.error("Error al consultar la base de datos:", dbError)
-
-      // Si hay un error, devolver datos simulados para gastos fijos
-      if (type === "fixed") {
-        const fixedExpenses = [
-          {
-            id: 1,
-            date: new Date(),
-            category: "Alquiler",
-            description: "Alquiler oficina",
-            amount: 500,
-            status: "approved",
-            isRecurring: true,
-            frequency: "monthly",
-            nextDueDate: new Date(new Date().setMonth(new Date().getMonth() + 1)),
-          },
-          {
-            id: 2,
-            date: new Date(),
-            category: "Seguros",
-            description: "Seguro vehículo",
-            amount: 300,
-            status: "approved",
-            isRecurring: true,
-            frequency: "quarterly",
-            nextDueDate: new Date(new Date().setMonth(new Date().getMonth() + 3)),
-          },
-          {
-            id: 3,
-            date: new Date(),
-            category: "Impuestos",
-            description: "Impuesto circulación",
-            amount: 150,
-            status: "approved",
-            isRecurring: true,
-            frequency: "annual",
-            nextDueDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
-          },
-          {
-            id: 4,
-            date: new Date(),
-            category: "Taller",
-            description: "Mantenimiento y reparaciones",
-            amount: 200,
-            status: "approved",
-            isRecurring: false,
-            frequency: null,
-            nextDueDate: null,
-          },
-        ]
-
-        return NextResponse.json(fixedExpenses)
-      }
-
-      return NextResponse.json({ error: "Error al obtener gastos" }, { status: 500 })
+      console.log(`Gastos de combustible encontrados: ${fuelExpenses.length}`)
+    } catch (fuelError) {
+      console.log("No se pudieron obtener gastos de combustible:", fuelError)
     }
+
+    // Combinar todos los gastos
+    const allExpenses = [
+      ...expenses,
+      ...fuelExpenses.map((expense) => ({
+        id: `fuel-${expense.id}`,
+        date: expense.date,
+        category: "Combustible",
+        description: `Combustible - ${expense.liters}L`,
+        amount: expense.amount,
+        status: "approved",
+        isPaid: true, // Los gastos de combustible se consideran pagados
+        paymentDate: expense.date,
+        isRecurring: false,
+        driver: expense.driver,
+        type: "fuel",
+      })),
+    ]
+
+    return NextResponse.json(allExpenses)
   } catch (error) {
     console.error("Error al obtener gastos:", error)
     return NextResponse.json({ error: "Error al obtener gastos" }, { status: 500 })
@@ -219,42 +169,66 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await request.json()
-    const { date, category, description, amount, receipt, status, notes, isRecurring, frequency, nextDueDate } = data
+    const {
+      date,
+      category,
+      description,
+      amount,
+      receipt,
+      status,
+      notes,
+      isRecurring,
+      frequency,
+      nextDueDate,
+      isPaid,
+      paymentDate,
+    } = data
 
     // Validar datos
     if (!date || !category || !description || !amount) {
       return NextResponse.json({ error: "Faltan datos requeridos" }, { status: 400 })
     }
 
-    // Crear el gasto sin userId para evitar errores de clave foránea
-    try {
-      const expense = await prisma.expense.create({
-        data: {
-          date: new Date(date),
-          category,
-          description,
-          amount: Number(amount),
-          receipt: receipt || null,
-          status: status || "approved", // Por defecto aprobado
-          notes: notes || null,
-          isRecurring: isRecurring || false,
-          frequency: frequency || null,
-          nextDueDate: nextDueDate ? new Date(nextDueDate) : null,
-          // No incluimos userId para evitar errores de clave foránea
-        },
-      })
-
-      console.log(`Gasto creado con éxito, ID: ${expense.id}`)
-      return NextResponse.json(expense)
-    } catch (dbError) {
-      console.error("Error al crear gasto:", dbError)
-      return NextResponse.json(
-        {
-          error: "Error al crear gasto. Detalles: " + (dbError as Error).message,
-        },
-        { status: 500 },
-      )
+    // Calcular nextDueDate si es recurrente
+    let calculatedNextDueDate = null
+    if (isRecurring && frequency) {
+      const baseDate = new Date(date)
+      switch (frequency) {
+        case "monthly":
+          calculatedNextDueDate = new Date(baseDate.setMonth(baseDate.getMonth() + 1))
+          break
+        case "quarterly":
+          calculatedNextDueDate = new Date(baseDate.setMonth(baseDate.getMonth() + 3))
+          break
+        case "biannual":
+          calculatedNextDueDate = new Date(baseDate.setMonth(baseDate.getMonth() + 6))
+          break
+        case "annual":
+          calculatedNextDueDate = new Date(baseDate.setFullYear(baseDate.getFullYear() + 1))
+          break
+      }
     }
+
+    // Crear el gasto
+    const expense = await prisma.expense.create({
+      data: {
+        date: new Date(date),
+        category,
+        description,
+        amount: Number(amount),
+        receipt: receipt || null,
+        status: status || "approved",
+        notes: notes || null,
+        isRecurring: isRecurring || false,
+        frequency: frequency || null,
+        nextDueDate: calculatedNextDueDate || (nextDueDate ? new Date(nextDueDate) : null),
+        isPaid: isPaid || false,
+        paymentDate: paymentDate ? new Date(paymentDate) : null,
+      },
+    })
+
+    console.log(`Gasto creado con éxito, ID: ${expense.id}`)
+    return NextResponse.json(expense)
   } catch (error) {
     console.error("Error al crear gasto:", error)
     return NextResponse.json(
@@ -274,38 +248,48 @@ export async function PUT(request: NextRequest) {
     }
 
     const data = await request.json()
-    const { id, date, category, description, amount, receipt, status, notes, isRecurring, frequency, nextDueDate } =
-      data
+    const {
+      id,
+      date,
+      category,
+      description,
+      amount,
+      receipt,
+      status,
+      notes,
+      isRecurring,
+      frequency,
+      nextDueDate,
+      isPaid,
+      paymentDate,
+    } = data
 
     // Validar datos
     if (!id || !date || !category || !description || !amount) {
       return NextResponse.json({ error: "Faltan datos requeridos" }, { status: 400 })
     }
 
-    try {
-      // Actualizar el gasto sin modificar la relación con el usuario
-      const expense = await prisma.expense.update({
-        where: { id: Number(id) },
-        data: {
-          date: new Date(date),
-          category,
-          description,
-          amount: Number(amount),
-          receipt: receipt || null,
-          status: status || "approved",
-          notes: notes || null,
-          isRecurring: isRecurring || false,
-          frequency: frequency || null,
-          nextDueDate: nextDueDate ? new Date(nextDueDate) : null,
-        },
-      })
+    // Actualizar el gasto
+    const expense = await prisma.expense.update({
+      where: { id: Number(id) },
+      data: {
+        date: new Date(date),
+        category,
+        description,
+        amount: Number(amount),
+        receipt: receipt || null,
+        status: status || "approved",
+        notes: notes || null,
+        isRecurring: isRecurring || false,
+        frequency: frequency || null,
+        nextDueDate: nextDueDate ? new Date(nextDueDate) : null,
+        isPaid: isPaid || false,
+        paymentDate: paymentDate ? new Date(paymentDate) : null,
+      },
+    })
 
-      console.log(`Gasto actualizado con éxito, ID: ${expense.id}`)
-      return NextResponse.json(expense)
-    } catch (dbError) {
-      console.error("Error al actualizar gasto:", dbError)
-      return NextResponse.json({ error: "Error al actualizar gasto" }, { status: 500 })
-    }
+    console.log(`Gasto actualizado con éxito, ID: ${expense.id}`)
+    return NextResponse.json(expense)
   } catch (error) {
     console.error("Error al actualizar gasto:", error)
     return NextResponse.json({ error: "Error al actualizar gasto" }, { status: 500 })
@@ -326,18 +310,13 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "ID no proporcionado" }, { status: 400 })
     }
 
-    try {
-      // Eliminar el gasto
-      await prisma.expense.delete({
-        where: { id: Number(id) },
-      })
+    // Eliminar el gasto
+    await prisma.expense.delete({
+      where: { id: Number(id) },
+    })
 
-      console.log(`Gasto eliminado con éxito, ID: ${id}`)
-      return NextResponse.json({ success: true })
-    } catch (dbError) {
-      console.error("Error al eliminar gasto:", dbError)
-      return NextResponse.json({ error: "Error al eliminar gasto" }, { status: 500 })
-    }
+    console.log(`Gasto eliminado con éxito, ID: ${id}`)
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Error al eliminar gasto:", error)
     return NextResponse.json({ error: "Error al eliminar gasto" }, { status: 500 })

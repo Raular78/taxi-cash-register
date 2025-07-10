@@ -38,6 +38,10 @@ import {
   Loader2,
   RefreshCw,
   AlertTriangle,
+  Check,
+  X,
+  Clock,
+  Edit,
 } from "lucide-react"
 import Link from "next/link"
 import {
@@ -58,6 +62,7 @@ import { NotificationSystem } from "../../../components/notification-system"
 import { toast } from "../../../components/ui/use-toast"
 import { Checkbox } from "../../../components/ui/checkbox"
 import { Textarea } from "../../../components/ui/textarea"
+import { Badge } from "../../../components/ui/badge"
 
 // Categorías que consideramos como gastos fijos
 const FIXED_EXPENSE_CATEGORIES = [
@@ -85,6 +90,8 @@ export default function ContabilidadPage() {
 
   const [activeTab, setActiveTab] = useState("resumen")
   const [isAddExpenseDialogOpen, setIsAddExpenseDialogOpen] = useState(false)
+  const [isEditExpenseDialogOpen, setIsEditExpenseDialogOpen] = useState(false)
+  const [editingExpense, setEditingExpense] = useState<any>(null)
   const [expenseFormData, setExpenseFormData] = useState({
     date: format(new Date(), "yyyy-MM-dd"),
     category: "Combustible",
@@ -93,6 +100,8 @@ export default function ContabilidadPage() {
     notes: "",
     isRecurring: false,
     frequency: "",
+    isPaid: false,
+    paymentDate: "",
   })
 
   // Estados para almacenar los datos
@@ -211,6 +220,43 @@ export default function ContabilidadPage() {
     }
   }
 
+  // Mutation para cambiar estado de pago
+  const togglePaymentMutation = useMutation({
+    mutationFn: async ({ expenseId, isPaid }: { expenseId: number; isPaid: boolean }) => {
+      const response = await fetch(`/api/expenses/${expenseId}/payment`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          isPaid,
+          paymentDate: isPaid ? new Date().toISOString() : null,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Error al actualizar estado de pago")
+      }
+
+      return response.json()
+    },
+    onSuccess: (data, variables) => {
+      toast({
+        title: variables.isPaid ? "Gasto marcado como pagado" : "Gasto marcado como pendiente",
+        description: `${data.description} - ${formatCurrency(data.amount)}`,
+      })
+      fetchData()
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `No se pudo actualizar el estado: ${error.message}`,
+        variant: "destructive",
+      })
+    },
+  })
+
   // Mutation para añadir un nuevo gasto
   const addExpenseMutation = useMutation({
     mutationFn: async (newExpense: any) => {
@@ -235,7 +281,6 @@ export default function ContabilidadPage() {
       return data
     },
     onSuccess: async (data) => {
-      // Mostrar mensaje de éxito
       toast({
         title: "Gasto creado",
         description: `Se ha creado el gasto de ${formatCurrency(data.amount)} correctamente.`,
@@ -259,15 +304,7 @@ export default function ContabilidadPage() {
 
       // Cerrar diálogo y resetear formulario
       setIsAddExpenseDialogOpen(false)
-      setExpenseFormData({
-        date: format(new Date(), "yyyy-MM-dd"),
-        category: "Combustible",
-        description: "",
-        amount: "",
-        notes: "",
-        isRecurring: false,
-        frequency: "",
-      })
+      resetExpenseForm()
     },
     onError: (error) => {
       console.error("Error en la mutación:", error)
@@ -278,6 +315,75 @@ export default function ContabilidadPage() {
       })
     },
   })
+
+  // Mutation para editar gasto
+  const editExpenseMutation = useMutation({
+    mutationFn: async (updatedExpense: any) => {
+      const response = await fetch("/api/expenses", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updatedExpense),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Error al actualizar gasto")
+      }
+
+      return response.json()
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Gasto actualizado",
+        description: `Se ha actualizado el gasto correctamente.`,
+      })
+      fetchData()
+      setIsEditExpenseDialogOpen(false)
+      setEditingExpense(null)
+      resetExpenseForm()
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `No se pudo actualizar el gasto: ${error.message}`,
+        variant: "destructive",
+      })
+    },
+  })
+
+  // Función para resetear el formulario
+  const resetExpenseForm = () => {
+    setExpenseFormData({
+      date: format(new Date(), "yyyy-MM-dd"),
+      category: "Combustible",
+      description: "",
+      amount: "",
+      notes: "",
+      isRecurring: false,
+      frequency: "",
+      isPaid: false,
+      paymentDate: "",
+    })
+  }
+
+  // Función para abrir el diálogo de edición
+  const openEditDialog = (expense: any) => {
+    setEditingExpense(expense)
+    setExpenseFormData({
+      date: format(new Date(expense.date), "yyyy-MM-dd"),
+      category: expense.category,
+      description: expense.description,
+      amount: expense.amount.toString(),
+      notes: expense.notes || "",
+      isRecurring: expense.isRecurring || false,
+      frequency: expense.frequency || "",
+      isPaid: expense.isPaid || false,
+      paymentDate: expense.paymentDate ? format(new Date(expense.paymentDate), "yyyy-MM-dd") : "",
+    })
+    setIsEditExpenseDialogOpen(true)
+  }
 
   // Función para manejar cambios en el filtro de fechas
   const handleDateFilterChange = useCallback((range: { from: Date; to: Date }) => {
@@ -295,8 +401,8 @@ export default function ContabilidadPage() {
     setExpenseFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleExpenseCheckboxChange = (checked: boolean) => {
-    setExpenseFormData((prev) => ({ ...prev, isRecurring: checked }))
+  const handleExpenseCheckboxChange = (name: string, checked: boolean) => {
+    setExpenseFormData((prev) => ({ ...prev, [name]: checked }))
   }
 
   const handleAddExpense = async () => {
@@ -329,25 +435,67 @@ export default function ContabilidadPage() {
         return
       }
 
-      // Use the mutation to add the expense
       addExpenseMutation.mutate({
         date: expenseFormData.date,
         category: expenseFormData.category,
         description: expenseFormData.description,
         amount,
         notes: expenseFormData.notes || null,
-        status: "approved", // Aprobamos automáticamente
+        status: "approved",
         isRecurring: expenseFormData.isRecurring,
         frequency: expenseFormData.isRecurring ? expenseFormData.frequency : null,
-        nextDueDate: expenseFormData.isRecurring
-          ? format(new Date(new Date(expenseFormData.date).getTime() + 30 * 24 * 60 * 60 * 1000), "yyyy-MM-dd")
-          : null,
+        isPaid: expenseFormData.isPaid,
+        paymentDate: expenseFormData.isPaid && expenseFormData.paymentDate ? expenseFormData.paymentDate : null,
       })
     } catch (error) {
       console.error("Error:", error)
       toast({
         title: "Error",
         description: "No se pudo crear el gasto",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleEditExpense = async () => {
+    try {
+      if (!editingExpense || !expenseFormData.category || !expenseFormData.description || !expenseFormData.amount) {
+        toast({
+          title: "Campos incompletos",
+          description: "Por favor, completa todos los campos obligatorios",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const amount = Number.parseFloat(expenseFormData.amount.replace(",", "."))
+      if (isNaN(amount) || amount <= 0) {
+        toast({
+          title: "Importe inválido",
+          description: "Por favor, introduce un importe válido",
+          variant: "destructive",
+        })
+        return
+      }
+
+      editExpenseMutation.mutate({
+        id: editingExpense.id,
+        date: expenseFormData.date,
+        category: expenseFormData.category,
+        description: expenseFormData.description,
+        amount,
+        notes: expenseFormData.notes || null,
+        status: "approved",
+        isRecurring: expenseFormData.isRecurring,
+        frequency: expenseFormData.isRecurring ? expenseFormData.frequency : null,
+        isPaid: expenseFormData.isPaid,
+        paymentDate: expenseFormData.isPaid && expenseFormData.paymentDate ? expenseFormData.paymentDate : null,
+      })
+    } catch (error) {
+      console.error("Error:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el gasto",
         variant: "destructive",
       })
     }
@@ -385,13 +533,11 @@ export default function ContabilidadPage() {
     return dailyRecords.reduce((sum, record) => sum + record.driverCommission, 0)
   }
 
-  // Modificar la función getTotalNetAmount para que reste correctamente los gastos
   const getTotalNetAmount = () => {
     const totalIncome = getTotalIncome()
     const totalExpenses = getTotalExpenses()
     const totalCommissions = getTotalCommission()
 
-    // El beneficio neto es ingresos - gastos - comisiones
     const netAmount = totalIncome - totalExpenses - totalCommissions
 
     console.log("Calculando beneficio neto:", {
@@ -412,7 +558,6 @@ export default function ContabilidadPage() {
 
   // Datos para gráficos
   const prepareMonthlyData = () => {
-    // Agrupar por mes
     const groupedByMonth = dailyRecords.reduce(
       (acc, record) => {
         const month = format(new Date(record.date), "MM/yyyy")
@@ -454,7 +599,6 @@ export default function ContabilidadPage() {
       }
     })
 
-    // Convertir a array y ordenar por mes
     return Object.values(groupedByMonth).sort((a, b) => {
       const [monthA, yearA] = a.month.split("/")
       const [monthB, yearB] = b.month.split("/")
@@ -504,7 +648,6 @@ export default function ContabilidadPage() {
   const calculateAnnualFixedExpenses = () => {
     return fixedExpenses.reduce((total, expense) => {
       let annualAmount = expense.amount
-      // Multiplicar por frecuencia si existe
       if (expense.frequency) {
         switch (expense.frequency) {
           case "monthly":
@@ -516,7 +659,6 @@ export default function ContabilidadPage() {
           case "biannual":
             annualAmount *= 2
             break
-          // Para anual, ya es el importe anual
         }
       }
       return total + annualAmount
@@ -524,6 +666,25 @@ export default function ContabilidadPage() {
   }
 
   const annualFixedExpensesTotal = calculateAnnualFixedExpenses()
+
+  // Función para renderizar el estado de pago
+  const renderPaymentStatus = (expense: any) => {
+    if (expense.isPaid) {
+      return (
+        <Badge variant="default" className="bg-green-100 text-green-800">
+          <Check className="h-3 w-3 mr-1" />
+          Pagado
+        </Badge>
+      )
+    } else {
+      return (
+        <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+          <Clock className="h-3 w-3 mr-1" />
+          Pendiente
+        </Badge>
+      )
+    }
+  }
 
   // Show loading state
   if (loading) {
@@ -638,7 +799,6 @@ export default function ContabilidadPage() {
           </CardContent>
         </Card>
 
-        {/* Asegurar que la descripción en la tarjeta de Beneficio Neto sea correcta */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Beneficio Neto</CardTitle>
@@ -978,7 +1138,8 @@ export default function ContabilidadPage() {
                         <TableHead>Descripción</TableHead>
                         <TableHead>Importe</TableHead>
                         <TableHead>Recurrente</TableHead>
-                        <TableHead>Estado</TableHead>
+                        <TableHead>Estado Pago</TableHead>
+                        <TableHead>Acciones</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -990,7 +1151,7 @@ export default function ContabilidadPage() {
                           <TableCell>{formatCurrency(expense.amount)}</TableCell>
                           <TableCell>
                             {expense.isRecurring ? (
-                              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                              <Badge variant="default" className="bg-blue-100 text-blue-800">
                                 {expense.frequency === "monthly"
                                   ? "Mensual"
                                   : expense.frequency === "quarterly"
@@ -1000,27 +1161,35 @@ export default function ContabilidadPage() {
                                       : expense.frequency === "annual"
                                         ? "Anual"
                                         : "Sí"}
-                              </span>
+                              </Badge>
                             ) : (
-                              <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">No</span>
+                              <Badge variant="secondary">No</Badge>
                             )}
                           </TableCell>
+                          <TableCell>{renderPaymentStatus(expense)}</TableCell>
                           <TableCell>
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                expense.status === "approved"
-                                  ? "bg-green-100 text-green-800"
-                                  : expense.status === "rejected"
-                                    ? "bg-red-100 text-red-800"
-                                    : "bg-yellow-100 text-yellow-800"
-                              }`}
-                            >
-                              {expense.status === "approved"
-                                ? "Aprobado"
-                                : expense.status === "rejected"
-                                  ? "Rechazado"
-                                  : "Pendiente"}
-                            </span>
+                            <div className="flex space-x-2">
+                              <Button variant="ghost" size="sm" onClick={() => openEditDialog(expense)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  togglePaymentMutation.mutate({
+                                    expenseId: expense.id,
+                                    isPaid: !expense.isPaid,
+                                  })
+                                }
+                                disabled={togglePaymentMutation.isPending}
+                              >
+                                {expense.isPaid ? (
+                                  <X className="h-4 w-4 text-red-500" />
+                                ) : (
+                                  <Check className="h-4 w-4 text-green-500" />
+                                )}
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -1105,7 +1274,8 @@ export default function ContabilidadPage() {
                     <TableHead>Descripción</TableHead>
                     <TableHead>Importe</TableHead>
                     <TableHead>Recurrente</TableHead>
-                    <TableHead>Estado</TableHead>
+                    <TableHead>Estado Pago</TableHead>
+                    <TableHead>Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1117,7 +1287,7 @@ export default function ContabilidadPage() {
                       <TableCell>{formatCurrency(expense.amount)}</TableCell>
                       <TableCell>
                         {expense.isRecurring ? (
-                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                          <Badge variant="default" className="bg-blue-100 text-blue-800">
                             {expense.frequency === "monthly"
                               ? "Mensual"
                               : expense.frequency === "quarterly"
@@ -1127,27 +1297,35 @@ export default function ContabilidadPage() {
                                   : expense.frequency === "annual"
                                     ? "Anual"
                                     : "Sí"}
-                          </span>
+                          </Badge>
                         ) : (
-                          <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">No</span>
+                          <Badge variant="secondary">No</Badge>
                         )}
                       </TableCell>
+                      <TableCell>{renderPaymentStatus(expense)}</TableCell>
                       <TableCell>
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            expense.status === "approved"
-                              ? "bg-green-100 text-green-800"
-                              : expense.status === "rejected"
-                                ? "bg-red-100 text-red-800"
-                                : "bg-yellow-100 text-yellow-800"
-                          }`}
-                        >
-                          {expense.status === "approved"
-                            ? "Aprobado"
-                            : expense.status === "rejected"
-                              ? "Rechazado"
-                              : "Pendiente"}
-                        </span>
+                        <div className="flex space-x-2">
+                          <Button variant="ghost" size="sm" onClick={() => openEditDialog(expense)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              togglePaymentMutation.mutate({
+                                expenseId: expense.id,
+                                isPaid: !expense.isPaid,
+                              })
+                            }
+                            disabled={togglePaymentMutation.isPending}
+                          >
+                            {expense.isPaid ? (
+                              <X className="h-4 w-4 text-red-500" />
+                            ) : (
+                              <Check className="h-4 w-4 text-green-500" />
+                            )}
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1417,13 +1595,13 @@ export default function ContabilidadPage() {
                   <SelectItem value="Mantenimiento">Mantenimiento</SelectItem>
                   <SelectItem value="Reparaciones">Reparaciones</SelectItem>
                   <SelectItem value="Limpieza">Limpieza</SelectItem>
-                  <SelectItem value="alquiler">Alquiler</SelectItem>
-                  <SelectItem value="seguros">Seguros</SelectItem>
-                  <SelectItem value="impuestos">Impuestos</SelectItem>
-                  <SelectItem value="servicios">Servicios</SelectItem>
-                  <SelectItem value="Nóminas">Nóminas</SelectItem>
+                  <SelectItem value="Alquiler">Alquiler</SelectItem>
+                  <SelectItem value="Seguros">Seguros</SelectItem>
+                  <SelectItem value="Impuestos">Impuestos</SelectItem>
+                  <SelectItem value="Suministros">Suministros</SelectItem>
                   <SelectItem value="Seguridad Social">Seguridad Social</SelectItem>
                   <SelectItem value="Cuota Autónomo">Cuota Autónomo</SelectItem>
+                  <SelectItem value="Cuota Agrupación">Cuota Agrupación</SelectItem>
                   <SelectItem value="Otros">Otros</SelectItem>
                 </SelectContent>
               </Select>
@@ -1463,7 +1641,7 @@ export default function ContabilidadPage() {
               <Checkbox
                 id="expense-recurring"
                 checked={expenseFormData.isRecurring}
-                onCheckedChange={handleExpenseCheckboxChange}
+                onCheckedChange={(checked) => handleExpenseCheckboxChange("isRecurring", checked)}
               />
               <Label htmlFor="expense-recurring">Gasto recurrente</Label>
             </div>
@@ -1486,6 +1664,26 @@ export default function ContabilidadPage() {
                 </Select>
               </div>
             )}
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="expense-paid"
+                checked={expenseFormData.isPaid}
+                onCheckedChange={(checked) => handleExpenseCheckboxChange("isPaid", checked)}
+              />
+              <Label htmlFor="expense-paid">Marcar como pagado</Label>
+            </div>
+            {expenseFormData.isPaid && (
+              <div className="space-y-2">
+                <Label htmlFor="expense-payment-date">Fecha de pago</Label>
+                <Input
+                  id="expense-payment-date"
+                  name="paymentDate"
+                  type="date"
+                  value={expenseFormData.paymentDate}
+                  onChange={handleExpenseInputChange}
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddExpenseDialogOpen(false)}>
@@ -1499,6 +1697,149 @@ export default function ContabilidadPage() {
                 </>
               ) : (
                 "Guardar"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo para editar gasto */}
+      <Dialog open={isEditExpenseDialogOpen} onOpenChange={setIsEditExpenseDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Gasto</DialogTitle>
+            <DialogDescription>
+              Modifica los datos del gasto. Los campos marcados con * son obligatorios.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-expense-date">Fecha *</Label>
+              <Input
+                id="edit-expense-date"
+                name="date"
+                type="date"
+                value={expenseFormData.date}
+                onChange={handleExpenseInputChange}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-expense-category">Categoría *</Label>
+              <Select
+                value={expenseFormData.category}
+                onValueChange={(value) => handleExpenseSelectChange("category", value)}
+              >
+                <SelectTrigger id="edit-expense-category">
+                  <SelectValue placeholder="Selecciona una categoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Combustible">Combustible</SelectItem>
+                  <SelectItem value="Mantenimiento">Mantenimiento</SelectItem>
+                  <SelectItem value="Reparaciones">Reparaciones</SelectItem>
+                  <SelectItem value="Limpieza">Limpieza</SelectItem>
+                  <SelectItem value="Alquiler">Alquiler</SelectItem>
+                  <SelectItem value="Seguros">Seguros</SelectItem>
+                  <SelectItem value="Impuestos">Impuestos</SelectItem>
+                  <SelectItem value="Suministros">Suministros</SelectItem>
+                  <SelectItem value="Seguridad Social">Seguridad Social</SelectItem>
+                  <SelectItem value="Cuota Autónomo">Cuota Autónomo</SelectItem>
+                  <SelectItem value="Cuota Agrupación">Cuota Agrupación</SelectItem>
+                  <SelectItem value="Otros">Otros</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-expense-description">Descripción *</Label>
+              <Input
+                id="edit-expense-description"
+                name="description"
+                value={expenseFormData.description}
+                onChange={handleExpenseInputChange}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-expense-amount">Importe (€) *</Label>
+              <Input
+                id="edit-expense-amount"
+                name="amount"
+                type="text"
+                value={expenseFormData.amount}
+                onChange={handleExpenseInputChange}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-expense-notes">Notas</Label>
+              <Textarea
+                id="edit-expense-notes"
+                name="notes"
+                value={expenseFormData.notes}
+                onChange={handleExpenseInputChange}
+                rows={3}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="edit-expense-recurring"
+                checked={expenseFormData.isRecurring}
+                onCheckedChange={(checked) => handleExpenseCheckboxChange("isRecurring", checked)}
+              />
+              <Label htmlFor="edit-expense-recurring">Gasto recurrente</Label>
+            </div>
+            {expenseFormData.isRecurring && (
+              <div className="space-y-2">
+                <Label htmlFor="edit-expense-frequency">Frecuencia *</Label>
+                <Select
+                  value={expenseFormData.frequency}
+                  onValueChange={(value) => handleExpenseSelectChange("frequency", value)}
+                >
+                  <SelectTrigger id="edit-expense-frequency">
+                    <SelectValue placeholder="Selecciona la frecuencia" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="monthly">Mensual</SelectItem>
+                    <SelectItem value="quarterly">Trimestral</SelectItem>
+                    <SelectItem value="biannual">Semestral</SelectItem>
+                    <SelectItem value="annual">Anual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="edit-expense-paid"
+                checked={expenseFormData.isPaid}
+                onCheckedChange={(checked) => handleExpenseCheckboxChange("isPaid", checked)}
+              />
+              <Label htmlFor="edit-expense-paid">Marcar como pagado</Label>
+            </div>
+            {expenseFormData.isPaid && (
+              <div className="space-y-2">
+                <Label htmlFor="edit-expense-payment-date">Fecha de pago</Label>
+                <Input
+                  id="edit-expense-payment-date"
+                  name="paymentDate"
+                  type="date"
+                  value={expenseFormData.paymentDate}
+                  onChange={handleExpenseInputChange}
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditExpenseDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleEditExpense} disabled={editExpenseMutation.isPending}>
+              {editExpenseMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Actualizando...
+                </>
+              ) : (
+                "Actualizar"
               )}
             </Button>
           </DialogFooter>
