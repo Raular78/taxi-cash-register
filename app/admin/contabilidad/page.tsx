@@ -82,6 +82,67 @@ export default function ContabilidadEnhancedPage() {
   const [unifiedExpenses, setUnifiedExpenses] = useState<any>(null)
   const [loadingUnified, setLoadingUnified] = useState(false)
 
+  // Cálculos para tarjetas de resumen - DEFINIDOS ANTES DE SU USO
+  const getTotalIncome = useCallback(() => {
+    return dailyRecords.reduce((sum, record) => sum + (record.totalAmount || 0), 0)
+  }, [dailyRecords])
+
+  const getTotalCommission = useCallback(() => {
+    return dailyRecords.reduce((sum, record) => sum + (record.driverCommission || 0), 0)
+  }, [dailyRecords])
+
+  // CORREGIDO: Usar SOLO los gastos del análisis unificado
+  const getTotalExpenses = useCallback(() => {
+    if (unifiedExpenses && typeof unifiedExpenses.totalExpenses === "number") {
+      console.log("✅ Usando gastos del análisis unificado:", unifiedExpenses.totalExpenses)
+      return unifiedExpenses.totalExpenses
+    }
+
+    // Fallback: NO incluir comisiones en los gastos
+    const operationalExpenses = dailyRecords.reduce(
+      (sum, record) => sum + (record.fuelExpense || 0) + (record.otherExpenses || 0),
+      0,
+    )
+    const fixedExpensesTotal = expenses
+      .filter((expense) => FIXED_EXPENSE_CATEGORIES.includes(expense.category))
+      .reduce((sum, expense) => sum + (expense.amount || 0), 0)
+
+    const fallbackTotal = operationalExpenses + fixedExpensesTotal
+    console.log("⚠️ Usando cálculo fallback de gastos:", {
+      operationalExpenses,
+      fixedExpensesTotal,
+      fallbackTotal,
+    })
+
+    return fallbackTotal
+  }, [unifiedExpenses, dailyRecords, expenses])
+
+  // CORREGIDO: Usar la misma lógica que el análisis detallado
+  const getTotalNetAmount = useCallback(() => {
+    const totalIncome = getTotalIncome()
+    const totalCommission = getTotalCommission()
+    const totalExpenses = getTotalExpenses()
+
+    // FÓRMULA CORRECTA: Ingresos - Comisiones - Gastos
+    const netAmount = totalIncome - totalCommission - totalExpenses
+
+    console.log("🧮 Cálculo de beneficio neto:", {
+      totalIncome,
+      totalCommission,
+      totalExpenses,
+      netAmount,
+      formula: "Ingresos - Comisiones - Gastos",
+    })
+
+    return netAmount
+  }, [getTotalIncome, getTotalCommission, getTotalExpenses])
+
+  const getMarginPercentage = useCallback(() => {
+    const income = getTotalIncome()
+    const net = getTotalNetAmount()
+    return income > 0 ? (net / income) * 100 : 0
+  }, [getTotalIncome, getTotalNetAmount])
+
   // Cargar análisis financiero unificado
   const fetchUnifiedExpenses = useCallback(async () => {
     if (!fromDate || !toDate) return
@@ -95,24 +156,31 @@ export default function ContabilidadEnhancedPage() {
       }
 
       const data = await response.json()
-      console.log("Gastos unificados cargados:", data)
+      console.log("📊 Gastos unificados cargados:", data)
 
-      // Calcular beneficio real
+      // Calcular beneficio real usando los valores actuales
       const totalIncome = getTotalIncome()
       const driverCommission = getTotalCommission()
       const realNetProfit = totalIncome - driverCommission - data.totalExpenses
+
+      console.log("💰 Cálculo del beneficio real:", {
+        totalIncome,
+        driverCommission,
+        totalExpenses: data.totalExpenses,
+        realNetProfit,
+      })
 
       setUnifiedExpenses({
         ...data,
         realNetProfit,
       })
     } catch (error) {
-      console.error("Error al cargar gastos unificados:", error)
+      console.error("❌ Error al cargar gastos unificados:", error)
       setUnifiedExpenses(null)
     } finally {
       setLoadingUnified(false)
     }
-  }, [fromDate, toDate])
+  }, [fromDate, toDate, getTotalIncome, getTotalCommission])
 
   // Cargar datos (tu función original)
   const fetchData = useCallback(async () => {
@@ -122,52 +190,52 @@ export default function ContabilidadEnhancedPage() {
       // Formatear fechas para las consultas
       const fromDateStr = format(fromDate, "yyyy-MM-dd")
       const toDateStr = format(toDate, "yyyy-MM-dd")
-      console.log(`Cargando datos desde ${fromDateStr} hasta ${toDateStr}`)
+      console.log(`📅 Cargando datos desde ${fromDateStr} hasta ${toDateStr}`)
 
       // Cargar registros diarios
       const dailyRecordsResponse = await fetch(`/api/daily-records?from=${fromDateStr}&to=${toDateStr}`)
       if (!dailyRecordsResponse.ok) {
         const errorText = await dailyRecordsResponse.text()
-        console.error("Error en respuesta de daily-records:", errorText)
+        console.error("❌ Error en respuesta de daily-records:", errorText)
         throw new Error(`Error al cargar registros diarios: ${errorText}`)
       }
       const dailyRecordsData = await dailyRecordsResponse.json()
-      console.log(`Registros diarios cargados: ${dailyRecordsData.length}`)
+      console.log(`✅ Registros diarios cargados: ${dailyRecordsData.length}`)
       setDailyRecords(dailyRecordsData)
 
       // Cargar gastos
       const expensesResponse = await fetch(`/api/expenses?from=${fromDateStr}&to=${toDateStr}`)
       if (!expensesResponse.ok) {
         const errorText = await expensesResponse.text()
-        console.error("Error en respuesta de expenses:", errorText)
+        console.error("❌ Error en respuesta de expenses:", errorText)
         throw new Error(`Error al cargar gastos: ${errorText}`)
       }
       const expensesData = await expensesResponse.json()
-      console.log(`Gastos cargados: ${expensesData.length}`)
+      console.log(`✅ Gastos cargados: ${expensesData.length}`)
       setExpenses(expensesData)
 
       // Cargar nóminas
       const payrollsResponse = await fetch(`/api/payrolls?from=${fromDateStr}&to=${toDateStr}`)
       if (!payrollsResponse.ok) {
         const errorText = await payrollsResponse.text()
-        console.error("Error en respuesta de payrolls:", errorText)
+        console.error("❌ Error en respuesta de payrolls:", errorText)
         throw new Error(`Error al cargar nóminas: ${errorText}`)
       }
       const payrollsData = await payrollsResponse.json()
-      console.log(`Nóminas cargadas: ${payrollsData.length}`)
+      console.log(`✅ Nóminas cargadas: ${payrollsData.length}`)
       setPayrolls(payrollsData)
 
       // Cargar balance
       const balanceResponse = await fetch(`/api/balance?month=${fromDateStr}`)
       if (balanceResponse.ok) {
         const balanceData = await balanceResponse.json()
-        console.log("Balance cargado:", balanceData)
+        console.log("✅ Balance cargado:", balanceData)
         setBalance(balanceData)
       }
 
       setLoading(false)
     } catch (err: any) {
-      console.error("Error al cargar datos:", err)
+      console.error("❌ Error al cargar datos:", err)
       setError(err.message || "Error al cargar datos")
       setLoading(false)
     }
@@ -183,9 +251,13 @@ export default function ContabilidadEnhancedPage() {
   // Cargar análisis unificado después de cargar los datos principales
   useEffect(() => {
     if (session && dailyRecords.length >= 0 && expenses.length >= 0) {
-      fetchUnifiedExpenses()
+      // Pequeño delay para asegurar que los datos estén listos
+      const timer = setTimeout(() => {
+        fetchUnifiedExpenses()
+      }, 100)
+      return () => clearTimeout(timer)
     }
-  }, [session, dailyRecords, expenses, fetchUnifiedExpenses])
+  }, [session, dailyRecords.length, expenses.length, fetchUnifiedExpenses])
 
   // Todas tus funciones originales se mantienen igual...
   const generateRecurringExpenses = async () => {
@@ -260,66 +332,6 @@ export default function ContabilidadEnhancedPage() {
     },
   })
 
-  // Cálculos para tarjetas de resumen
-  const getTotalIncome = () => {
-    return dailyRecords.reduce((sum, record) => sum + record.totalAmount, 0)
-  }
-
-  const getTotalExpenses = () => {
-    // Si tenemos análisis unificado, usar esos datos
-    if (unifiedExpenses) {
-      console.log("Usando gastos del análisis unificado:", unifiedExpenses.totalExpenses)
-      return unifiedExpenses.totalExpenses
-    }
-
-    // Fallback: cálculo básico mientras se carga el análisis unificado
-    const operationalExpenses = dailyRecords.reduce((sum, record) => sum + record.fuelExpense + record.otherExpenses, 0)
-    const allExpensesTotal = expenses.reduce((sum, expense) => sum + expense.amount, 0)
-    const payrollsTotal = payrolls.reduce((sum, payroll) => sum + payroll.netAmount, 0)
-
-    console.log("Usando cálculo básico de gastos:", {
-      operationalExpenses,
-      allExpensesTotal,
-      payrollsTotal,
-      total: operationalExpenses + allExpensesTotal + payrollsTotal,
-    })
-
-    return operationalExpenses + allExpensesTotal + payrollsTotal
-  }
-
-  const getTotalCommission = () => {
-    return dailyRecords.reduce((sum, record) => sum + record.driverCommission, 0)
-  }
-
-  const getTotalNetAmount = () => {
-    // Si tenemos análisis unificado, usar el beneficio real calculado
-    if (unifiedExpenses && typeof unifiedExpenses.realNetProfit === "number") {
-      console.log("Usando beneficio neto del análisis unificado:", unifiedExpenses.realNetProfit)
-      return unifiedExpenses.realNetProfit
-    }
-
-    // Fallback: cálculo básico
-    const totalIncome = getTotalIncome()
-    const totalExpenses = getTotalExpenses()
-    const totalCommissions = getTotalCommission()
-    const netAmount = totalIncome - totalExpenses - totalCommissions
-
-    console.log("Usando cálculo básico de beneficio neto:", {
-      totalIncome,
-      totalExpenses,
-      totalCommissions,
-      netAmount,
-    })
-
-    return netAmount
-  }
-
-  const getMarginPercentage = () => {
-    const income = getTotalIncome()
-    const net = getTotalNetAmount()
-    return income > 0 ? (net / income) * 100 : 0
-  }
-
   // Formatear moneda
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("es-ES", {
@@ -352,7 +364,7 @@ export default function ContabilidadEnhancedPage() {
 
   // Función para manejar cambios en el filtro de fechas
   const handleDateFilterChange = useCallback((range: { from: Date; to: Date }) => {
-    console.log("Nuevo rango de fechas seleccionado:", range)
+    console.log("📅 Nuevo rango de fechas seleccionado:", range)
     setFromDate(range.from)
     setToDate(range.to)
   }, [])
@@ -456,7 +468,7 @@ export default function ContabilidadEnhancedPage() {
         </div>
       ) : null}
 
-      {/* Tarjetas de resumen originales */}
+      {/* Tarjetas de resumen - AHORA SINCRONIZADAS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -519,7 +531,6 @@ export default function ContabilidadEnhancedPage() {
       </div>
 
       {/* TODAS TUS PESTAÑAS ORIGINALES SE MANTIENEN IGUAL */}
-      {/* Solo añado una nueva pestaña para el análisis unificado */}
       <Tabs defaultValue="resumen" value={activeTab} onValueChange={setActiveTab} className="space-y-4 mt-6">
         <TabsList>
           <TabsTrigger value="resumen">Resumen</TabsTrigger>
@@ -614,7 +625,7 @@ export default function ContabilidadEnhancedPage() {
           )}
         </TabsContent>
 
-        {/* Resto de pestañas - mantengo solo la estructura básica para evitar el archivo muy largo */}
+        {/* Resto de pestañas - mantengo solo la estructura básica */}
         <TabsContent value="resumen" className="space-y-4">
           <div className="text-center py-8">
             <p className="text-muted-foreground">Contenido del resumen...</p>
