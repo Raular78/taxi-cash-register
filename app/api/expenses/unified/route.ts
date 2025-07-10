@@ -24,22 +24,37 @@ export async function GET(request: Request) {
 
     console.log(`🔍 Calculando gastos unificados del ${fromDate.toISOString()} al ${toDate.toISOString()}`)
 
-    // 1. GASTOS FIJOS MENSUALES (SOLO de la tabla Expense)
-    const fixedExpenses = await prisma.expense.findMany({
-      where: {
-        OR: [
-          { isRecurring: true },
-          {
-            category: {
-              in: ["Seguridad Social", "Cuota Autónomo", "Cuota Agrupación", "Gestoría", "Seguros", "Suministros"],
-            },
+    // Determinar si incluir gastos trimestrales basado en el mes
+    const currentMonth = fromDate.getMonth() + 1 // getMonth() devuelve 0-11
+    const includeQuarterlyExpenses = [1, 4, 7, 10].includes(currentMonth) // Enero, Abril, Julio, Octubre
+
+    console.log(`📅 Mes actual: ${currentMonth}, Incluir gastos trimestrales: ${includeQuarterlyExpenses}`)
+
+    // 1. GASTOS FIJOS MENSUALES (de la tabla Expense)
+    const fixedExpensesQuery = {
+      OR: [
+        { isRecurring: true },
+        {
+          category: {
+            in: ["Seguridad Social", "Cuota Autónomo", "Cuota Agrupación", "Gestoría", "Suministros"],
           },
-        ],
-        date: {
-          gte: fromDate,
-          lte: toDate,
         },
+      ],
+      date: {
+        gte: fromDate,
+        lte: toDate,
       },
+    }
+
+    // Agregar seguros solo en meses trimestrales
+    if (includeQuarterlyExpenses) {
+      fixedExpensesQuery.OR.push({
+        category: "Seguros",
+      })
+    }
+
+    const fixedExpenses = await prisma.expense.findMany({
+      where: fixedExpensesQuery,
     })
 
     console.log(`📋 Gastos fijos encontrados: ${fixedExpenses.length}`)
@@ -74,7 +89,10 @@ export async function GET(request: Request) {
           monthlyFixedExpenses.gestoria += amount
           break
         case "seguros":
-          monthlyFixedExpenses.seguros += amount
+          // Solo incluir si es un mes trimestral
+          if (includeQuarterlyExpenses) {
+            monthlyFixedExpenses.seguros += amount
+          }
           break
         case "suministros":
           monthlyFixedExpenses.suministros += amount
@@ -143,6 +161,7 @@ export async function GET(request: Request) {
     console.log(`   - Gastos operacionales (daily records): ${dailyOperationalExpenses}€`)
     console.log(`   - Gastos variables (sin combustible): ${totalVariableExpenses}€`)
     console.log(`   - TOTAL: ${totalExpenses}€`)
+    console.log(`   - Incluye gastos trimestrales: ${includeQuarterlyExpenses}`)
 
     // 5. RESULTADO FINAL
     const result = {
@@ -157,7 +176,8 @@ export async function GET(request: Request) {
         totalFixedExpenses,
         totalVariableExpenses,
         totalOperationalExpenses: dailyOperationalExpenses,
-        note: "Gastos calculados sin duplicaciones. Combustible solo desde daily_records.",
+        includeQuarterlyExpenses,
+        note: "Gastos calculados sin duplicaciones. Combustible solo desde daily_records. Seguros solo en meses trimestrales.",
       },
     }
 
@@ -170,3 +190,4 @@ export async function GET(request: Request) {
     )
   }
 }
+
