@@ -53,6 +53,11 @@ export function EnhancedFinancialSummary({
     )
   }
 
+  // Cálculo del desglose de comisión del conductor
+  const NOMINA_BASE = 1400 // Nómina fija del conductor
+  const efectivoAdicional = Math.max(0, driverCommission - NOMINA_BASE)
+  const nominaReal = Math.min(driverCommission, NOMINA_BASE)
+
   const profitMargin = totalIncome > 0 ? (unifiedExpenses.realNetProfit / totalIncome) * 100 : 0
   const isHealthyMargin = profitMargin > 15
 
@@ -87,9 +92,27 @@ export function EnhancedFinancialSummary({
             <div>
               <h3 className="font-semibold mb-3 text-red-700">💸 Gastos Totales</h3>
               <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>🚗 Comisión Conductor:</span>
-                  <span className="text-orange-600">{formatCurrency(driverCommission)}</span>
+                {/* Comisión del conductor con desglose */}
+                <div className="border border-orange-200 rounded-lg p-3 bg-orange-50">
+                  <div className="flex justify-between text-sm font-medium">
+                    <span>🚗 Comisión Total Conductor:</span>
+                    <span className="text-orange-600">{formatCurrency(driverCommission)}</span>
+                  </div>
+                  <div className="ml-4 mt-2 space-y-1 text-xs">
+                    <div className="flex justify-between">
+                      <span>├── Nómina (fija):</span>
+                      <span className="text-blue-600">{formatCurrency(nominaReal)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>└── Efectivo adicional:</span>
+                      <span className="text-green-600">{formatCurrency(efectivoAdicional)}</span>
+                    </div>
+                  </div>
+                  {driverCommission < NOMINA_BASE && (
+                    <div className="mt-2 text-xs text-orange-700 bg-orange-100 p-2 rounded">
+                      ⚠️ Comisión menor que nómina base. Diferencia: {formatCurrency(NOMINA_BASE - driverCommission)}
+                    </div>
+                  )}
                 </div>
 
                 <div className="border-t pt-2 mt-2">
@@ -154,7 +177,7 @@ export function EnhancedFinancialSummary({
                 <h3 className="font-semibold text-blue-900">💎 Beneficio Neto Real</h3>
                 <p className="text-sm text-blue-700">Después de TODOS los gastos y comisiones</p>
                 <p className="text-xs text-blue-600 mt-1">
-                  Fórmula: Ingresos - Comisiones - Gastos Fijos - Gastos Operacionales - Gastos Variables
+                  Fórmula: Ingresos - Comisión Total - Gastos Fijos - Gastos Operacionales - Gastos Variables
                 </p>
               </div>
               <div className="text-right">
@@ -170,7 +193,7 @@ export function EnhancedFinancialSummary({
             </div>
           </div>
 
-          {/* Desglose de cálculo */}
+          {/* Desglose de cálculo mejorado */}
           <div className="mt-4 p-3 bg-gray-50 rounded-lg text-sm">
             <h4 className="font-medium mb-2">🧮 Desglose del Cálculo:</h4>
             <div className="space-y-1 text-xs">
@@ -178,9 +201,17 @@ export function EnhancedFinancialSummary({
                 <span>Ingresos totales:</span>
                 <span className="text-green-600">+{formatCurrency(totalIncome)}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Comisión conductor:</span>
+              <div className="flex justify-between border-l-2 border-orange-300 pl-2">
+                <span>Comisión total conductor:</span>
                 <span className="text-red-600">-{formatCurrency(driverCommission)}</span>
+              </div>
+              <div className="flex justify-between text-xs text-gray-600 ml-4">
+                <span>├── Nómina fija:</span>
+                <span>-{formatCurrency(nominaReal)}</span>
+              </div>
+              <div className="flex justify-between text-xs text-gray-600 ml-4">
+                <span>└── Efectivo adicional:</span>
+                <span>-{formatCurrency(efectivoAdicional)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Gastos fijos mensuales:</span>
@@ -211,6 +242,37 @@ export function EnhancedFinancialSummary({
                   {formatCurrency(unifiedExpenses.realNetProfit)}
                 </span>
               </div>
+            </div>
+          </div>
+
+          {/* Información adicional para el conductor */}
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="font-medium text-blue-900 mb-2">📋 Información del Conductor:</h4>
+            <div className="text-sm space-y-1">
+              <div className="flex justify-between">
+                <span>Comisión acumulada (35%):</span>
+                <span className="font-medium">{formatCurrency(driverCommission)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Nómina mensual:</span>
+                <span className="font-medium">{formatCurrency(nominaReal)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Efectivo a recibir:</span>
+                <span className="font-medium text-green-600">{formatCurrency(efectivoAdicional)}</span>
+              </div>
+              {efectivoAdicional > 0 && (
+                <div className="text-xs text-blue-700 mt-2 p-2 bg-blue-100 rounded">
+                  ✅ El conductor ha superado su nómina base y recibirá {formatCurrency(efectivoAdicional)} adicionales
+                  en efectivo.
+                </div>
+              )}
+              {driverCommission < NOMINA_BASE && (
+                <div className="text-xs text-orange-700 mt-2 p-2 bg-orange-100 rounded">
+                  ⚠️ La comisión aún no alcanza la nómina base. Faltan {formatCurrency(NOMINA_BASE - driverCommission)}{" "}
+                  para completarla.
+                </div>
+              )}
             </div>
           </div>
 

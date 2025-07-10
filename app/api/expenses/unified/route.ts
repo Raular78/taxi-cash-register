@@ -24,7 +24,7 @@ export async function GET(request: Request) {
 
     console.log(`🔍 Calculando gastos unificados del ${fromDate.toISOString()} al ${toDate.toISOString()}`)
 
-    // 1. GASTOS FIJOS MENSUALES (de la tabla Expense)
+    // 1. GASTOS FIJOS MENSUALES (SOLO de la tabla Expense)
     const fixedExpenses = await prisma.expense.findMany({
       where: {
         OR: [
@@ -85,28 +85,9 @@ export async function GET(request: Request) {
       }
     })
 
-    // 2. GASTOS OPERACIONALES DIARIOS (combustible + otros gastos diarios)
+    // 2. GASTOS OPERACIONALES DIARIOS (SOLO de daily_records - NO duplicar)
     let dailyOperationalExpenses = 0
 
-    // Gastos de combustible de la tabla FuelExpense
-    try {
-      const fuelExpenses = await prisma.fuelExpense.findMany({
-        where: {
-          date: {
-            gte: fromDate,
-            lte: toDate,
-          },
-        },
-      })
-
-      const totalFuelExpenses = fuelExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0)
-      dailyOperationalExpenses += totalFuelExpenses
-      console.log(`⛽ Gastos de combustible: ${totalFuelExpenses}€`)
-    } catch (error) {
-      console.log("⚠️ No se pudieron obtener gastos de combustible:", error)
-    }
-
-    // Gastos operacionales de los registros diarios (fuelExpense + otherExpenses)
     try {
       const dailyRecords = await prisma.dailyRecord.findMany({
         where: {
@@ -117,17 +98,18 @@ export async function GET(request: Request) {
         },
       })
 
-      const dailyRecordExpenses = dailyRecords.reduce((sum, record) => {
+      // SOLO gastos operacionales de registros diarios (combustible + otros gastos del día)
+      dailyOperationalExpenses = dailyRecords.reduce((sum, record) => {
         return sum + (record.fuelExpense || 0) + (record.otherExpenses || 0)
       }, 0)
 
-      dailyOperationalExpenses += dailyRecordExpenses
-      console.log(`🚗 Gastos de registros diarios: ${dailyRecordExpenses}€`)
+      console.log(`🚗 Gastos operacionales de registros diarios: ${dailyOperationalExpenses}€`)
     } catch (error) {
       console.log("⚠️ No se pudieron obtener gastos de registros diarios:", error)
     }
 
     // 3. GASTOS VARIABLES (gastos no recurrentes y no fijos de la tabla Expense)
+    // EXCLUIR categorías que ya están en gastos fijos Y combustible para evitar duplicación
     const variableExpenses = await prisma.expense.findMany({
       where: {
         isRecurring: false,
@@ -139,7 +121,7 @@ export async function GET(request: Request) {
             "Gestoría",
             "Seguros",
             "Suministros",
-            "Combustible", // Evitar duplicar combustible
+            "Combustible", // EXCLUIR combustible para evitar duplicar con daily records
           ],
         },
         date: {
@@ -150,19 +132,19 @@ export async function GET(request: Request) {
     })
 
     const totalVariableExpenses = variableExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0)
-    console.log(`📊 Gastos variables: ${totalVariableExpenses}€`)
+    console.log(`📊 Gastos variables (sin duplicar): ${totalVariableExpenses}€`)
 
-    // 4. CALCULAR TOTALES
+    // 4. CALCULAR TOTALES SIN DUPLICACIONES
     const totalFixedExpenses = Object.values(monthlyFixedExpenses).reduce((sum, amount) => sum + amount, 0)
     const totalExpenses = totalFixedExpenses + dailyOperationalExpenses + totalVariableExpenses
 
-    console.log(`💰 Resumen de gastos:`)
+    console.log(`💰 Resumen de gastos SIN duplicaciones:`)
     console.log(`   - Gastos fijos: ${totalFixedExpenses}€`)
-    console.log(`   - Gastos operacionales: ${dailyOperationalExpenses}€`)
-    console.log(`   - Gastos variables: ${totalVariableExpenses}€`)
+    console.log(`   - Gastos operacionales (daily records): ${dailyOperationalExpenses}€`)
+    console.log(`   - Gastos variables (sin combustible): ${totalVariableExpenses}€`)
     console.log(`   - TOTAL: ${totalExpenses}€`)
 
-    // 5. CALCULAR BENEFICIO (se calculará en el frontend con los ingresos)
+    // 5. RESULTADO FINAL
     const result = {
       monthlyFixedExpenses,
       dailyOperationalExpenses,
@@ -175,6 +157,7 @@ export async function GET(request: Request) {
         totalFixedExpenses,
         totalVariableExpenses,
         totalOperationalExpenses: dailyOperationalExpenses,
+        note: "Gastos calculados sin duplicaciones. Combustible solo desde daily_records.",
       },
     }
 
