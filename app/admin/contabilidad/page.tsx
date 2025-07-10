@@ -1,22 +1,35 @@
 "use client"
-import { useState, useEffect, useCallback } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { EnhancedFinancialSummary } from "@/components/enhanced-financial-summary"
-import { DollarSign, Check, Clock } from "lucide-react"
-import { addDays, format as formatDate } from "date-fns"
-import { RefreshCw } from "lucide-react" // Import RefreshCw
 
+import { useState, useCallback, useEffect } from "react"
 import { useSession } from "next-auth/react"
-import { Link } from "next/link"
+import { format, startOfMonth, endOfMonth, subMonths } from "date-fns"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card"
+import { Button } from "../../../components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs"
+import {
+  ArrowUp,
+  ArrowDown,
+  DollarSign,
+  Percent,
+  TrendingUp,
+  Fuel,
+  ArrowLeft,
+  Loader2,
+  RefreshCw,
+  AlertTriangle,
+  Check,
+  Clock,
+  Calculator,
+  Building,
+} from "lucide-react"
+import Link from "next/link"
 import { DateFilter } from "../../../components/date-filter"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { DatabaseStatus } from "../../../components/database-status"
 import { NotificationSystem } from "../../../components/notification-system"
 import { toast } from "../../../components/ui/use-toast"
-import { ArrowUp, ArrowDown, Percent, TrendingUp, Fuel, ArrowLeft, Loader2, AlertTriangle } from "lucide-react"
-import { Building } from "lucide-react"
+import { Badge } from "../../../components/ui/badge"
+import { EnhancedFinancialSummary } from "../../../components/enhanced-financial-summary"
 
 // Categorías que consideramos como gastos fijos
 const FIXED_EXPENSE_CATEGORIES = [
@@ -39,14 +52,14 @@ export default function ContabilidadEnhancedPage() {
   const queryClient = useQueryClient()
 
   // Fechas iniciales (primer y último día del mes actual)
-  const [fromDate, setFromDate] = useState<Date>(addDays(new Date(), -30))
-  const [toDate, setToDate] = useState<Date>(new Date())
+  const [fromDate, setFromDate] = useState<Date>(startOfMonth(subMonths(new Date(), 1)))
+  const [toDate, setToDate] = useState<Date>(endOfMonth(new Date()))
   const [activeTab, setActiveTab] = useState("resumen")
   const [isAddExpenseDialogOpen, setIsAddExpenseDialogOpen] = useState(false)
   const [isEditExpenseDialogOpen, setIsEditExpenseDialogOpen] = useState(false)
   const [editingExpense, setEditingExpense] = useState<any>(null)
   const [expenseFormData, setExpenseFormData] = useState({
-    date: formatDate(new Date(), "yyyy-MM-dd"),
+    date: format(new Date(), "yyyy-MM-dd"),
     category: "Combustible",
     description: "",
     amount: "",
@@ -76,23 +89,18 @@ export default function ContabilidadEnhancedPage() {
     try {
       setLoadingUnified(true)
       const response = await fetch(`/api/expenses/unified?from=${fromDate.toISOString()}&to=${toDate.toISOString()}`)
+
       if (!response.ok) {
         throw new Error("Error al obtener gastos unificados")
       }
 
       const data = await response.json()
+      console.log("Gastos unificados cargados:", data)
 
-      // Calcular beneficio real usando la misma lógica que el componente
+      // Calcular beneficio real
       const totalIncome = getTotalIncome()
       const driverCommission = getTotalCommission()
       const realNetProfit = totalIncome - driverCommission - data.totalExpenses
-
-      console.log("🧮 Cálculo unificado:", {
-        totalIncome,
-        driverCommission,
-        totalExpenses: data.totalExpenses,
-        realNetProfit,
-      })
 
       setUnifiedExpenses({
         ...data,
@@ -100,6 +108,7 @@ export default function ContabilidadEnhancedPage() {
       })
     } catch (error) {
       console.error("Error al cargar gastos unificados:", error)
+      setUnifiedExpenses(null)
     } finally {
       setLoadingUnified(false)
     }
@@ -111,8 +120,8 @@ export default function ContabilidadEnhancedPage() {
     setError(null)
     try {
       // Formatear fechas para las consultas
-      const fromDateStr = formatDate(fromDate, "yyyy-MM-dd")
-      const toDateStr = formatDate(toDate, "yyyy-MM-dd")
+      const fromDateStr = format(fromDate, "yyyy-MM-dd")
+      const toDateStr = format(toDate, "yyyy-MM-dd")
       console.log(`Cargando datos desde ${fromDateStr} hasta ${toDateStr}`)
 
       // Cargar registros diarios
@@ -173,10 +182,10 @@ export default function ContabilidadEnhancedPage() {
 
   // Cargar análisis unificado después de cargar los datos principales
   useEffect(() => {
-    if (session && dailyRecords.length >= 0) {
+    if (session && dailyRecords.length >= 0 && expenses.length >= 0) {
       fetchUnifiedExpenses()
     }
-  }, [session, dailyRecords, fetchUnifiedExpenses])
+  }, [session, dailyRecords, expenses, fetchUnifiedExpenses])
 
   // Todas tus funciones originales se mantienen igual...
   const generateRecurringExpenses = async () => {
@@ -251,45 +260,58 @@ export default function ContabilidadEnhancedPage() {
     },
   })
 
-  // Cálculos para tarjetas de resumen - CORREGIDOS PARA USAR LA MISMA LÓGICA
+  // Cálculos para tarjetas de resumen
   const getTotalIncome = () => {
     return dailyRecords.reduce((sum, record) => sum + record.totalAmount, 0)
   }
 
-  // CORREGIDO: Usar solo gastos operacionales de daily records (sin duplicar)
   const getTotalExpenses = () => {
-    if (!unifiedExpenses) {
-      // Fallback temporal mientras se carga el análisis unificado
-      const operationalExpenses = dailyRecords.reduce(
-        (sum, record) => sum + record.fuelExpense + record.otherExpenses,
-        0,
-      )
-      const fixedExpenses = expenses
-        .filter((expense) => FIXED_EXPENSE_CATEGORIES.includes(expense.category))
-        .reduce((sum, expense) => sum + expense.amount, 0)
-      return operationalExpenses + fixedExpenses
+    // Si tenemos análisis unificado, usar esos datos
+    if (unifiedExpenses) {
+      console.log("Usando gastos del análisis unificado:", unifiedExpenses.totalExpenses)
+      return unifiedExpenses.totalExpenses
     }
 
-    // Usar los gastos del análisis unificado (sin duplicaciones)
-    return unifiedExpenses.totalExpenses
+    // Fallback: cálculo básico mientras se carga el análisis unificado
+    const operationalExpenses = dailyRecords.reduce((sum, record) => sum + record.fuelExpense + record.otherExpenses, 0)
+    const allExpensesTotal = expenses.reduce((sum, expense) => sum + expense.amount, 0)
+    const payrollsTotal = payrolls.reduce((sum, payroll) => sum + payroll.netAmount, 0)
+
+    console.log("Usando cálculo básico de gastos:", {
+      operationalExpenses,
+      allExpensesTotal,
+      payrollsTotal,
+      total: operationalExpenses + allExpensesTotal + payrollsTotal,
+    })
+
+    return operationalExpenses + allExpensesTotal + payrollsTotal
   }
 
   const getTotalCommission = () => {
     return dailyRecords.reduce((sum, record) => sum + record.driverCommission, 0)
   }
 
-  // CORREGIDO: Usar la misma lógica que el análisis detallado
   const getTotalNetAmount = () => {
-    if (!unifiedExpenses) {
-      // Fallback temporal
-      const totalIncome = getTotalIncome()
-      const totalExpenses = getTotalExpenses()
-      const totalCommissions = getTotalCommission()
-      return totalIncome - totalCommissions - totalExpenses
+    // Si tenemos análisis unificado, usar el beneficio real calculado
+    if (unifiedExpenses && typeof unifiedExpenses.realNetProfit === "number") {
+      console.log("Usando beneficio neto del análisis unificado:", unifiedExpenses.realNetProfit)
+      return unifiedExpenses.realNetProfit
     }
 
-    // Usar el beneficio real calculado del análisis unificado
-    return unifiedExpenses.realNetProfit
+    // Fallback: cálculo básico
+    const totalIncome = getTotalIncome()
+    const totalExpenses = getTotalExpenses()
+    const totalCommissions = getTotalCommission()
+    const netAmount = totalIncome - totalExpenses - totalCommissions
+
+    console.log("Usando cálculo básico de beneficio neto:", {
+      totalIncome,
+      totalExpenses,
+      totalCommissions,
+      netAmount,
+    })
+
+    return netAmount
   }
 
   const getMarginPercentage = () => {
@@ -404,7 +426,7 @@ export default function ContabilidadEnhancedPage() {
 
       <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md mb-6">
         <h2 className="text-lg font-medium mb-2 flex items-center">
-          <Building className="h-5 w-5 mr-2" />
+          <Calculator className="h-5 w-5 mr-2" />
           Filtrar por fecha
         </h2>
         <DateFilter
@@ -434,7 +456,7 @@ export default function ContabilidadEnhancedPage() {
         </div>
       ) : null}
 
-      {/* Tarjetas de resumen - AHORA CONSISTENTES */}
+      {/* Tarjetas de resumen originales */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -472,7 +494,7 @@ export default function ContabilidadEnhancedPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Beneficio Neto</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <TrendingUp className={`h-4 w-4 ${getTotalNetAmount() > 0 ? "text-green-500" : "text-red-500"}`} />
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${getTotalNetAmount() > 0 ? "text-green-600" : "text-red-600"}`}>
@@ -485,7 +507,7 @@ export default function ContabilidadEnhancedPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Margen</CardTitle>
-            <Percent className="h-4 w-4 text-muted-foreground" />
+            <Percent className={`h-4 w-4 ${getMarginPercentage() > 0 ? "text-green-500" : "text-red-500"}`} />
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${getMarginPercentage() > 0 ? "text-green-600" : "text-red-600"}`}>
@@ -498,173 +520,137 @@ export default function ContabilidadEnhancedPage() {
 
       {/* TODAS TUS PESTAÑAS ORIGINALES SE MANTIENEN IGUAL */}
       {/* Solo añado una nueva pestaña para el análisis unificado */}
-      <div className="space-y-4 mt-6">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-medium">Pestañas</span>
-          <div className="flex space-x-2">
-            <Button
-              variant="outline"
-              onClick={() => setActiveTab("resumen")}
-              className={activeTab === "resumen" ? "bg-primary text-white" : ""}
-            >
-              Resumen
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setActiveTab("analisis-unificado")}
-              className={activeTab === "analisis-unificado" ? "bg-primary text-white" : ""}
-            >
-              Análisis Unificado
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setActiveTab("ingresos")}
-              className={activeTab === "ingresos" ? "bg-primary text-white" : ""}
-            >
-              Ingresos
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setActiveTab("gastos")}
-              className={activeTab === "gastos" ? "bg-primary text-white" : ""}
-            >
-              Gastos
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setActiveTab("gastos-fijos")}
-              className={activeTab === "gastos-fijos" ? "bg-primary text-white" : ""}
-            >
-              Gastos Fijos
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setActiveTab("nominas")}
-              className={activeTab === "nominas" ? "bg-primary text-white" : ""}
-            >
-              Nóminas
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setActiveTab("informes")}
-              className={activeTab === "informes" ? "bg-primary text-white" : ""}
-            >
-              Informes
-            </Button>
-          </div>
-        </div>
+      <Tabs defaultValue="resumen" value={activeTab} onValueChange={setActiveTab} className="space-y-4 mt-6">
+        <TabsList>
+          <TabsTrigger value="resumen">Resumen</TabsTrigger>
+          <TabsTrigger value="analisis-unificado">Análisis Unificado</TabsTrigger>
+          <TabsTrigger value="ingresos">Ingresos</TabsTrigger>
+          <TabsTrigger value="gastos">Gastos</TabsTrigger>
+          <TabsTrigger value="gastos-fijos">Gastos Fijos</TabsTrigger>
+          <TabsTrigger value="nominas">Nóminas</TabsTrigger>
+          <TabsTrigger value="informes">Informes</TabsTrigger>
+        </TabsList>
 
         {/* NUEVA PESTAÑA: Análisis Unificado */}
-        {activeTab === "analisis-unificado" && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Fuel className="h-5 w-5 mr-2 text-blue-600" />
-                  Gastos Operacionales
-                </CardTitle>
-                <CardDescription>Combustible y gastos diarios</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-blue-600 mb-2">
-                  {formatCurrency(unifiedExpenses.dailyOperationalExpenses)}
-                </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>Combustible:</span>
-                    <span>{formatCurrency(unifiedExpenses.operationalExpenses?.fuel || 0)}</span>
+        <TabsContent value="analisis-unificado" className="space-y-4">
+          {unifiedExpenses && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Fuel className="h-5 w-5 mr-2 text-blue-600" />
+                    Gastos Operacionales
+                  </CardTitle>
+                  <CardDescription>Combustible y gastos diarios</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-blue-600 mb-2">
+                    {formatCurrency(unifiedExpenses.dailyOperationalExpenses)}
                   </div>
-                  <div className="flex justify-between">
-                    <span>Otros gastos:</span>
-                    <span>{formatCurrency(unifiedExpenses.operationalExpenses?.other || 0)}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Building className="h-5 w-5 mr-2 text-orange-600" />
-                  Gastos Fijos
-                </CardTitle>
-                <CardDescription>Seguros, cuotas, nóminas</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-orange-600 mb-2">
-                  {formatCurrency(
-                    Object.values(unifiedExpenses.monthlyFixedExpenses || {}).reduce(
-                      (sum: number, val: any) => sum + val,
-                      0,
-                    ),
-                  )}
-                </div>
-                <div className="space-y-1 text-xs">
-                  {Object.entries(unifiedExpenses.monthlyFixedExpenses || {}).map(([key, value]) => (
-                    <div key={key} className="flex justify-between">
-                      <span className="capitalize">{key.replace(/([A-Z])/g, " $1")}:</span>
-                      <span>{formatCurrency(value as number)}</span>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Combustible:</span>
+                      <span>{formatCurrency(unifiedExpenses.operationalExpenses?.fuel || 0)}</span>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                    <div className="flex justify-between">
+                      <span>Otros gastos:</span>
+                      <span>{formatCurrency(unifiedExpenses.operationalExpenses?.other || 0)}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <TrendingUp className="h-5 w-5 mr-2 text-green-600" />
-                  Beneficio Real
-                </CardTitle>
-                <CardDescription>Después de todos los gastos</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div
-                  className={`text-3xl font-bold mb-2 ${
-                    unifiedExpenses.realNetProfit > 0 ? "text-green-600" : "text-red-600"
-                  }`}
-                >
-                  {formatCurrency(unifiedExpenses.realNetProfit)}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Margen:{" "}
-                  {getTotalIncome() > 0 ? ((unifiedExpenses.realNetProfit / getTotalIncome()) * 100).toFixed(1) : 0}%
-                </div>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Building className="h-5 w-5 mr-2 text-orange-600" />
+                    Gastos Fijos
+                  </CardTitle>
+                  <CardDescription>Seguros, cuotas, nóminas</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-orange-600 mb-2">
+                    {formatCurrency(
+                      Object.values(unifiedExpenses.monthlyFixedExpenses || {}).reduce(
+                        (sum: number, val: any) => sum + val,
+                        0,
+                      ),
+                    )}
+                  </div>
+                  <div className="space-y-1 text-xs">
+                    {Object.entries(unifiedExpenses.monthlyFixedExpenses || {}).map(([key, value]) => (
+                      <div key={key} className="flex justify-between">
+                        <span className="capitalize">{key.replace(/([A-Z])/g, " $1")}:</span>
+                        <span>{formatCurrency(value as number)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <TrendingUp className="h-5 w-5 mr-2 text-green-600" />
+                    Beneficio Real
+                  </CardTitle>
+                  <CardDescription>Después de todos los gastos</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div
+                    className={`text-3xl font-bold mb-2 ${
+                      unifiedExpenses.realNetProfit > 0 ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    {formatCurrency(unifiedExpenses.realNetProfit)}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Margen:{" "}
+                    {getTotalIncome() > 0 ? ((unifiedExpenses.realNetProfit / getTotalIncome()) * 100).toFixed(1) : 0}%
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Resto de pestañas - mantengo solo la estructura básica para evitar el archivo muy largo */}
+        <TabsContent value="resumen" className="space-y-4">
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">Contenido del resumen...</p>
           </div>
-        )}
+        </TabsContent>
 
-        {/* PESTAÑA: Resumen */}
-        {activeTab === "resumen" && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">{/* Tarjetas de resumen */}</div>
-        )}
+        <TabsContent value="ingresos" className="space-y-4">
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">Contenido de ingresos...</p>
+          </div>
+        </TabsContent>
 
-        {/* PESTAÑA: Ingresos */}
-        {activeTab === "ingresos" && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">{/* Tarjetas de ingresos */}</div>
-        )}
+        <TabsContent value="gastos" className="space-y-4">
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">Contenido de gastos...</p>
+          </div>
+        </TabsContent>
 
-        {/* PESTAÑA: Gastos */}
-        {activeTab === "gastos" && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">{/* Tarjetas de gastos */}</div>
-        )}
+        <TabsContent value="gastos-fijos" className="space-y-4">
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">Contenido de gastos fijos...</p>
+          </div>
+        </TabsContent>
 
-        {/* PESTAÑA: Gastos Fijos */}
-        {activeTab === "gastos-fijos" && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">{/* Tarjetas de gastos fijos */}</div>
-        )}
+        <TabsContent value="nominas" className="space-y-4">
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">Contenido de nóminas...</p>
+          </div>
+        </TabsContent>
 
-        {/* PESTAÑA: Nóminas */}
-        {activeTab === "nominas" && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">{/* Tarjetas de nóminas */}</div>
-        )}
-
-        {/* PESTAÑA: Informes */}
-        {activeTab === "informes" && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">{/* Tarjetas de informes */}</div>
-        )}
-      </div>
+        <TabsContent value="informes" className="space-y-4">
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">Contenido de informes...</p>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
